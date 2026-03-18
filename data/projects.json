@@ -1,0 +1,10 @@
+[
+  {
+    "project_name": "llm-orchestrator",
+    "status": "in-progress",
+    "summary": "Termux上で動作するマルチLLMオーケストレーションツールの試作。",
+    "current_focus": "CLIの骨組み実装と共有コンテキストの管理",
+    "next_step": "OpenAI/Geminiへの接続確認と初期ログ設計",
+    "related_tools": ["python", "requests", "argparse"]
+  }
+]

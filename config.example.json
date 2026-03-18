@@ -1,0 +1,19 @@
+{
+  "openai": {
+    "api_key": "YOUR_OPENAI_API_KEY",
+    "model": "gpt-4o"
+  },
+  "anthropic": {
+    "api_key": "YOUR_ANTHROPIC_API_KEY",
+    "model": "claude-sonnet-4-6"
+  },
+  "gemini": {
+    "api_key": "YOUR_GOOGLE_GEMINI_API_KEY",
+    "model": "gemini-2.0-flash"
+  },
+  "context_files": {
+    "shared_context": "data/shared_context.md",
+    "projects": "data/projects.json",
+    "weekly_update": "data/weekly_update.md"
+  }
+}
