@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent-openai: #10b981;
+    --accent-anthropic: #f97316;
+    --accent-gemini: #3b82f6;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --error: #ef4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── ヘッダー ── */
+  header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+
+  header span {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* ── 入力エリア ── */
+  .input-section {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .auth-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .auth-row label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  input[type="password"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    border-radius: 4px;
+    width: 200px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="password"]:focus {
+    border-color: #4a4a6a;
+  }
+
+  textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    padding: 14px 16px;
+    border-radius: 4px;
+    resize: vertical;
+    min-height: 90px;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  textarea:focus {
+    border-color: #4a4a6a;
+  }
+
+  .send-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    align-items: center;
+  }
+
+  #status-msg {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  button#send-btn {
+    background: #fff;
+    color: #000;
+    border: none;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    padding: 10px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  button#send-btn:hover { opacity: 0.85; }
+  button#send-btn:active { transform: scale(0.98); }
+  button#send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* ── 結果グリッド ── */
+  .results {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+  }
+
+  .panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+  }
+
+  .panel:last-child { border-right: none; }
+
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .panel-openai   .dot { background: var(--accent-openai); }
+  .panel-anthropic .dot { background: var(--accent-anthropic); }
+  .panel-gemini   .dot { background: var(--accent-gemini); }
+
+  .panel-name {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .panel-openai   .panel-name { color: var(--accent-openai); }
+  .panel-anthropic .panel-name { color: var(--accent-anthropic); }
+  .panel-gemini   .panel-name { color: var(--accent-gemini); }
+
+  .panel-model {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+
+  .panel-body {
+    flex: 1;
+    padding: 20px;
+    font-size: 0.82rem;
+    line-height: 1.75;
+    color: #c8d0dc;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-y: auto;
+  }
+
+  .panel-body.empty {
+    color: var(--text-muted);
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .panel-body.error { color: var(--error); }
+
+  /* ローディング */
+  .loading-bar {
+    height: 2px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .loading-bar.active::after {
+    content: '';
+    position: absolute;
+    left: -40%;
+    top: 0;
+    width: 40%;
+    height: 100%;
+    animation: slide 1.2s ease-in-out infinite;
+  }
+
+  .panel-openai   .loading-bar.active::after { background: var(--accent-openai); }
+  .panel-anthropic .loading-bar.active::after { background: var(--accent-anthropic); }
+  .panel-gemini   .loading-bar.active::after { background: var(--accent-gemini); }
+
+  @keyframes slide {
+    0%   { left: -40%; }
+    100% { left: 100%; }
+  }
+
+  /* モバイル */
+  @media (max-width: 768px) {
+    header { padding: 20px 16px 14px; }
+    .input-section { padding: 16px; }
+    .results { grid-template-columns: 1fr; }
+    .panel { border-right: none; border-bottom: 1px solid var(--border); }
+    .panel:last-child { border-bottom: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LLM Council</h1>
+  <span>3AI simultaneous query</span>
+</header>
+
+<div class="input-section">
+  <div class="auth-row">
+    <label>Password</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+  </div>
+  <textarea id="prompt" placeholder="質問を入力してください..."></textarea>
+  <div class="send-row">
+    <span id="status-msg"></span>
+    <button id="send-btn">SEND →</button>
+  </div>
+</div>
+
+<div class="results">
+  <!-- OpenAI -->
+  <div class="panel panel-openai">
+    <div class="panel-header">
+      <div class="dot"></div>
+      <span class="panel-name">OpenAI</span>
+      <span class="panel-model">gpt-4o</span>
+    </div>
+    <div class="loading-bar" id="bar-openai"></div>
+    <div class="panel-body empty" id="body-openai">awaiting query...</div>
+  </div>
+
+  <!-- Anthropic -->
+  <div class="panel panel-anthropic">
+    <div class="panel-header">
+      <div class="dot"></div>
+      <span class="panel-name">Anthropic</span>
+      <span class="panel-model">claude-haiku</span>
+    </div>
+    <div class="loading-bar" id="bar-anthropic"></div>
+    <div class="panel-body empty" id="body-anthropic">awaiting query...</div>
+  </div>
+
+  <!-- Gemini -->
+  <div class="panel panel-gemini">
+    <div class="panel-header">
+      <div class="dot"></div>
+      <span class="panel-name">Gemini</span>
+      <span class="panel-model">gemini-1.5-pro</span>
+    </div>
+    <div class="loading-bar" id="bar-gemini"></div>
+    <div class="panel-body empty" id="body-gemini">awaiting query...</div>
+  </div>
+</div>
+
+<script>
+  const WORKER_URL = "https://llm-council-worker.inverted-triangle-leef.workers.dev";
+
+  const sendBtn = document.getElementById("send-btn");
+  const statusMsg = document.getElementById("status-msg");
+
+  sendBtn.addEventListener("click", async () => {
+    const password = document.getElementById("password").value.trim();
+    const prompt = document.getElementById("prompt").value.trim();
+
+    if (!password) { setStatus("パスワードを入力してください"); return; }
+    if (!prompt)   { setStatus("質問を入力してください"); return; }
+
+    setLoading(true);
+    setStatus("送信中...");
+    resetPanels();
+
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, prompt }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatus(data.error || "エラーが発生しました");
+        setLoading(false);
+        return;
+      }
+
+      renderPanel("openai",    data.openai);
+      renderPanel("anthropic", data.anthropic);
+      renderPanel("gemini",    data.gemini);
+      setStatus("");
+
+    } catch (e) {
+      setStatus("接続エラー: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  function renderPanel(id, result) {
+    const el = document.getElementById("body-" + id);
+    el.classList.remove("empty", "error");
+    if (result.ok) {
+      el.textContent = result.text;
+    } else {
+      el.classList.add("error");
+      el.textContent = result.text;
+    }
+  }
+
+  function resetPanels() {
+    ["openai", "anthropic", "gemini"].forEach(id => {
+      const el = document.getElementById("body-" + id);
+      el.className = "panel-body empty";
+      el.textContent = "loading...";
+    });
+  }
+
+  function setLoading(on) {
+    sendBtn.disabled = on;
+    ["bar-openai", "bar-anthropic", "bar-gemini"].forEach(id => {
+      document.getElementById(id).className = "loading-bar" + (on ? " active" : "");
+    });
+  }
+
+  function setStatus(msg) {
+    statusMsg.textContent = msg;
+  }
+
+  // Enter + Shift で送信
+  document.getElementById("prompt").addEventListener("keydown", e => {
+    if (e.key === "Enter" && e.shiftKey) {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+</script>
+</body>
+</html>
