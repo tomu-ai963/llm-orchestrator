@@ -36,7 +36,7 @@
     padding: 24px 32px 18px;
     border-bottom: 1px solid var(--border);
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 14px;
   }
 
@@ -580,6 +580,36 @@
     margin-left: 4px;
   }
 
+  /* ─────────────────────── メモリバッジ ─────────────────────── */
+  #memory-badge {
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: #a78bfa;
+    border: 1px solid rgba(167,139,250,0.3);
+    padding: 3px 10px;
+    border-radius: 3px;
+    margin-left: auto;   /* ヘッダー右端に寄せる */
+    transition: opacity 0.3s;
+  }
+
+  /* ─────────────────────── メモリリセットボタン ─────────────── */
+  #reset-memory-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    padding: 5px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-right: auto;   /* 左寄せ（SEND と反対側） */
+  }
+
+  #reset-memory-btn:hover    { color: var(--error); border-color: rgba(239,68,68,0.4); }
+  #reset-memory-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
   /* ─────────────────────── モバイル ─────────────────────── */
   @media (max-width: 768px) {
     header { padding: 18px 16px 14px; }
@@ -601,6 +631,7 @@
 <header>
   <h1>LLM Council</h1>
   <span id="mode-badge" class="mode-council">council</span>
+  <span id="memory-badge" style="display:none"></span>
 </header>
 
 <!-- ═══════════════════════ 入力エリア ═══════════════════════ -->
@@ -657,6 +688,7 @@
 
   <!-- 送信 -->
   <div class="send-row">
+    <button id="reset-memory-btn" style="display:none">🗑 記憶をリセット</button>
     <span id="status-msg"></span>
     <button id="send-btn">SEND →</button>
   </div>
@@ -696,12 +728,14 @@ let reviewTarget = "anthropic";
    DOM 参照
 ════════════════════════════════════════════════════════════ */
 const $  = id => document.getElementById(id);
-const sendBtn     = $("send-btn");
-const statusMsg   = $("status-msg");
-const resultsArea = $("results-area");
-const modeBadge   = $("mode-badge");
-const historyList = $("history-entries");
-const historyEmpty = $("history-empty");
+const sendBtn        = $("send-btn");
+const statusMsg      = $("status-msg");
+const resultsArea    = $("results-area");
+const modeBadge      = $("mode-badge");
+const memoryBadge    = $("memory-badge");
+const resetMemoryBtn = $("reset-memory-btn");
+const historyList    = $("history-entries");
+const historyEmpty   = $("history-empty");
 
 /* ═══════════════════════════════════════════════════════════
    localStorage 復元
@@ -810,6 +844,7 @@ sendBtn.addEventListener("click", async () => {
 
     renderResults(data);
     addHistory(prompt, data);
+    if (data.memory) updateMemoryBadge(data.memory.history_count + 1);
     setStatus("");
 
   } catch (e) {
@@ -972,6 +1007,51 @@ function addHistory(prompt, data) {
 $("clear-btn").addEventListener("click", () => {
   historyList.innerHTML = "";
   historyEmpty.style.display = "";
+});
+
+/* ═══════════════════════════════════════════════════════════
+   メモリ
+════════════════════════════════════════════════════════════ */
+
+/** メモリバッジとリセットボタンの表示を更新 */
+function updateMemoryBadge(count) {
+  if (count > 0) {
+    memoryBadge.textContent    = `🧠 ${count}件の記憶`;
+    memoryBadge.style.display  = "";
+    resetMemoryBtn.style.display = "";
+  } else {
+    memoryBadge.style.display    = "none";
+    resetMemoryBtn.style.display = "none";
+  }
+}
+
+/** KV メモリをリセット（/reset-memory エンドポイントに POST）*/
+resetMemoryBtn.addEventListener("click", async () => {
+  const password = $("password").value.trim();
+  if (!password) { setStatus("パスワードを入力してください"); return; }
+
+  resetMemoryBtn.disabled = true;
+  setStatus("記憶をリセット中...");
+
+  try {
+    const res = await fetch(WORKER_URL + "/reset-memory", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setStatus(data.error || "リセットに失敗しました");
+      return;
+    }
+    updateMemoryBadge(0);
+    setStatus("記憶をリセットしました");
+    setTimeout(() => setStatus(""), 2500);
+  } catch (e) {
+    setStatus("エラー: " + e.message);
+  } finally {
+    resetMemoryBtn.disabled = false;
+  }
 });
 
 /* ═══════════════════════════════════════════════════════════

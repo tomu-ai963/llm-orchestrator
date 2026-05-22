@@ -1,14 +1,19 @@
 /**
  * LLM Council Worker — ESモジュール形式
+ * v3: メモリ機能追加（KV永続化）
  *
- * リクエスト:
+ * エンドポイント:
+ *   POST /               — メイン（council / ask / review）
+ *   POST /reset-memory   — メモリ削除
+ *
+ * リクエスト（メイン）:
  *   { password, prompt, mode?, target?, shared_context? }
- *   mode    : "council" (default) | "ask" | "review"
- *   target  : "openai" | "anthropic" | "gemini"  — ask/review で使用
+ *   mode   : "council"(default) | "ask" | "review"
+ *   target : "openai" | "anthropic" | "gemini"
  *
- * レスポンス:
- *   { openai: {ok, text}, anthropic: {ok, text}, gemini: {ok, text} }
- *   review 時は target の結果に is_review: true が付く
+ * レスポンス（メイン）:
+ *   { openai, anthropic, gemini, memory: { used, history_count } }
+ *   review 時は target に is_review: true が付く
  */
 
 /* ═══════════════════════════════════════════════════════════
@@ -29,7 +34,7 @@ const AI_LABEL = { openai: "OpenAI", anthropic: "Anthropic", gemini: "Gemini" };
 ════════════════════════════════════════════════════════════ */
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     // ── CORS プリフライト ──
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS_HEADERS });
@@ -37,6 +42,12 @@ export default {
 
     if (request.method !== "POST") {
       return jsonRes({ error: "Method Not Allowed" }, 405);
+    }
+
+    // ── URL ルーティング ──
+    const pathname = new URL(request.url).pathname;
+    if (pathname === "/reset-memory") {
+      return handleResetMemory(request, env);
     }
 
     // ── ボディ解析 ──
@@ -73,7 +84,7 @@ export default {
     ]);
     const keys = { openai: openaiKey, anthropic: anthropicKey, gemini: geminiKey };
 
-    // ── モード振り分け ──
+    // ── 入力バリデーション ──
     const validModes   = ["council", "ask", "review"];
     const validTargets = ["openai", "anthropic", "gemini"];
 
@@ -84,35 +95,152 @@ export default {
       return jsonRes({ error: `不明なターゲット: ${target}` }, 400);
     }
 
+    // ── ① メモリ読み込み ──
+    const { history } = await loadMemory(env);
+    const memoryContext = buildMemoryContext(history);
+
+    // ── ② AI 呼び出し ──
     let result;
     if (mode === "ask") {
-      result = await handleAsk(keys, prompt, target, shared_context);
+      result = await handleAsk(keys, prompt, target, shared_context, memoryContext);
     } else if (mode === "review") {
-      result = await handleReview(keys, prompt, target, shared_context);
+      result = await handleReview(keys, prompt, target, shared_context, memoryContext);
     } else {
-      result = await handleCouncil(keys, prompt, shared_context);
+      result = await handleCouncil(keys, prompt, shared_context, memoryContext);
     }
 
-    return jsonRes(result);
+    // ── ③ 保存用エントリー構築 ──
+    const entry = {
+      id:        String(Date.now()),
+      timestamp: new Date().toISOString(),
+      mode,
+      prompt,
+      responses: result,   // { openai, anthropic, gemini }（memory フィールドは含まない）
+    };
+
+    // ── ④ レスポンス返却（memory フィールド付き）──
+    // history_count は保存前のカウント。GUI 側が +1 して表示する
+    const response = jsonRes({
+      ...result,
+      memory: {
+        used:          history.length > 0,
+        history_count: history.length,
+      },
+    });
+
+    // ── ⑤ ノンブロッキング保存（レスポンス返却後に実行）──
+    ctx.waitUntil(saveMemory(env, entry));
+
+    return response;
   },
 };
 
 /* ═══════════════════════════════════════════════════════════
-   プロンプト構築（orchestrator.py の build_prompt を移植）
+   メモリ: 読み込み
 ════════════════════════════════════════════════════════════ */
 
 /**
- * @param {string}  question      - ユーザーの質問
- * @param {string}  sharedContext - 共有コンテキスト（任意）
- * @param {string}  mode          - "ask" | "review"
- * @param {string|null} summary   - review 時の他AI回答まとめ
+ * KV から履歴とコンテキストを読み込む。
+ * エラーは無視して空メモリで続行（可用性優先）。
  */
-function buildPrompt(question, sharedContext, mode = "ask", summary = null) {
+async function loadMemory(env) {
+  try {
+    const historyRaw = await env.COUNCIL_KV.get("memory:history");
+    const contextRaw = await env.COUNCIL_KV.get("memory:context");
+    return {
+      history: historyRaw ? JSON.parse(historyRaw) : [],
+      context: contextRaw || "",
+    };
+  } catch {
+    return { history: [], context: "" };
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   メモリ: 保存
+════════════════════════════════════════════════════════════ */
+
+/**
+ * 会話エントリーを KV の先頭に追加する。
+ * 最大 50 件を超えた場合は末尾を削除する。
+ */
+async function saveMemory(env, entry) {
+  try {
+    const historyRaw = await env.COUNCIL_KV.get("memory:history");
+    const history    = historyRaw ? JSON.parse(historyRaw) : [];
+    history.unshift(entry);                    // 先頭（最新）に追加
+    if (history.length > 50) history.pop();    // 上限 50 件
+    await env.COUNCIL_KV.put("memory:history", JSON.stringify(history));
+  } catch (e) {
+    console.error("saveMemory error:", e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   メモリ: プロンプト用サマリー生成
+════════════════════════════════════════════════════════════ */
+
+/**
+ * 履歴の直近 5 件を1行ずつサマリー化してプロンプトに差し込む。
+ * トークン節約のため質問文は 80 文字に切り詰める。
+ */
+function buildMemoryContext(history) {
+  if (!history.length) return "";
+  const recent = history.slice(0, 5);
+  const lines  = recent.map(h => {
+    const date = new Date(h.timestamp).toLocaleDateString("ja-JP");
+    return `[${date}] ${h.mode.toUpperCase()}: ${h.prompt.slice(0, 80)}`;
+  });
+  return "【過去の会話履歴】\n" + lines.join("\n");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   メモリリセット
+════════════════════════════════════════════════════════════ */
+
+async function handleResetMemory(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonRes({ error: "Invalid JSON" }, 400);
+  }
+
+  const correctPassword = await env.COUNCIL_KV.get("password");
+  if (body.password !== correctPassword) {
+    return jsonRes({ error: "パスワードが違います" }, 401);
+  }
+
+  await Promise.all([
+    env.COUNCIL_KV.delete("memory:history"),
+    env.COUNCIL_KV.delete("memory:context"),
+  ]);
+
+  return jsonRes({ ok: true });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   プロンプト構築（orchestrator.py の build_prompt を移植・拡張）
+════════════════════════════════════════════════════════════ */
+
+/**
+ * @param {string}      question      - ユーザーの質問
+ * @param {string}      sharedContext - 共有コンテキスト（GUI 入力）
+ * @param {string}      memoryContext - 過去の会話要約（KV から）
+ * @param {string}      mode          - "ask" | "review"
+ * @param {string|null} summary       - review 時の他AI回答まとめ
+ *
+ * プロンプト構造（上から順に差し込み）:
+ *   1. 過去の会話履歴（memoryContext）
+ *   2. 共有コンテキスト（sharedContext）
+ *   3. 他モデルの回答（review のみ）
+ *   4. 質問 + 指示
+ */
+function buildPrompt(question, sharedContext, memoryContext, mode = "ask", summary = null) {
   const parts = [];
 
-  if (sharedContext) {
-    parts.push(`【共有コンテキスト】\n${sharedContext}`);
-  }
+  if (memoryContext) parts.push(memoryContext);
+  if (sharedContext) parts.push(`【共有コンテキスト】\n${sharedContext}`);
 
   if (mode === "review" && summary) {
     parts.push(`他モデルの回答:\n${summary}`);
@@ -131,8 +259,8 @@ function buildPrompt(question, sharedContext, mode = "ask", summary = null) {
 ════════════════════════════════════════════════════════════ */
 
 /** COUNCIL: 3AI 同時並列 */
-async function handleCouncil(keys, prompt, sharedContext) {
-  const p = buildPrompt(prompt, sharedContext);
+async function handleCouncil(keys, prompt, sharedContext, memoryContext) {
+  const p = buildPrompt(prompt, sharedContext, memoryContext);
   const [openai, anthropic, gemini] = await Promise.all([
     callOpenAI(keys.openai, p),
     callAnthropic(keys.anthropic, p),
@@ -141,13 +269,11 @@ async function handleCouncil(keys, prompt, sharedContext) {
   return { openai, anthropic, gemini };
 }
 
-/** ASK: 指定 1AI のみ、残りは空レスポンス */
-async function handleAsk(keys, prompt, target, sharedContext) {
-  const p      = buildPrompt(prompt, sharedContext);
+/** ASK: 指定 1AI のみ、残りは空レスポンス（GUI 非表示用） */
+async function handleAsk(keys, prompt, target, sharedContext, memoryContext) {
+  const p      = buildPrompt(prompt, sharedContext, memoryContext);
   const result = await callAI(keys, target, p);
-
-  // 残り2つは空（GUI 側で非表示にする）
-  const base = {
+  const base   = {
     openai:    { ok: false, text: "" },
     anthropic: { ok: false, text: "" },
     gemini:    { ok: false, text: "" },
@@ -158,38 +284,35 @@ async function handleAsk(keys, prompt, target, sharedContext) {
 
 /**
  * REVIEW: orchestrator.py の cmd_review を移植
- *   1. 他2AI に基本プロンプトを並列送信
- *   2. 成功した回答を summary に結合
+ *   1. 他 2AI に基本プロンプトを並列送信
+ *   2. 成功回答を summary 結合（失敗 AI は除外）
  *   3. target AI に review プロンプトを送信
  */
-async function handleReview(keys, prompt, target, sharedContext) {
+async function handleReview(keys, prompt, target, sharedContext, memoryContext) {
   const others = AI_ALL.filter(ai => ai !== target);
 
-  // Step 1: 他2AI に並列質問
-  const basePrompt = buildPrompt(prompt, sharedContext);
+  // Step 1: 他 2AI 並列質問
+  const basePrompt = buildPrompt(prompt, sharedContext, memoryContext);
   const [res0, res1] = await Promise.all([
     callAI(keys, others[0], basePrompt),
     callAI(keys, others[1], basePrompt),
   ]);
 
-  // Step 2: summary 構築（失敗 AI は除外）
+  // Step 2: summary 構築
   const summaryParts = [];
   const otherResults = {};
   [[others[0], res0], [others[1], res1]].forEach(([ai, res]) => {
     otherResults[ai] = res;
-    if (res.ok) {
-      summaryParts.push(`【${AI_LABEL[ai]}】\n${res.text}`);
-    }
+    if (res.ok) summaryParts.push(`【${AI_LABEL[ai]}】\n${res.text}`);
   });
   const summary = summaryParts.length > 0
     ? summaryParts.join("\n\n")
     : "(他 AI の回答を取得できませんでした)";
 
-  // Step 3: target AI に review プロンプトを送信
-  const reviewPrompt  = buildPrompt(prompt, sharedContext, "review", summary);
-  const reviewResult  = await callAI(keys, target, reviewPrompt);
+  // Step 3: target AI に review プロンプト
+  const reviewPrompt = buildPrompt(prompt, sharedContext, memoryContext, "review", summary);
+  const reviewResult = await callAI(keys, target, reviewPrompt);
 
-  // レスポンス組み立て
   const base = {
     openai:    { ok: false, text: "" },
     anthropic: { ok: false, text: "" },
@@ -197,7 +320,7 @@ async function handleReview(keys, prompt, target, sharedContext) {
   };
   base[others[0]] = otherResults[others[0]];
   base[others[1]] = otherResults[others[1]];
-  base[target]    = { ...reviewResult, is_review: true };  // GUI がゴールドボーダー判定に使う
+  base[target]    = { ...reviewResult, is_review: true };
 
   return base;
 }
@@ -220,7 +343,7 @@ async function callOpenAI(apiKey, prompt) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization:  `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model:      "gpt-4o",
