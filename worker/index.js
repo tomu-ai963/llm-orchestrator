@@ -77,12 +77,11 @@ export default {
     }
 
     // ── API キー取得（KV） ──
-    const [openaiKey, anthropicKey, geminiKey] = await Promise.all([
+    const [openaiKey, anthropicKey] = await Promise.all([
       env.COUNCIL_KV.get("openai_key"),
       env.COUNCIL_KV.get("anthropic_key"),
-      env.COUNCIL_KV.get("gemini_key"),
     ]);
-    const keys = { openai: openaiKey, anthropic: anthropicKey, gemini: geminiKey };
+    const keys = { openai: openaiKey, anthropic: anthropicKey, gemini: env.XAI_API_KEY };
 
     // ── 入力バリデーション ──
     const validModes   = ["council", "ask", "review"];
@@ -264,7 +263,7 @@ async function handleCouncil(keys, prompt, sharedContext, memoryContext) {
   const [openai, anthropic, gemini] = await Promise.all([
     callOpenAI(keys.openai, p),
     callAnthropic(keys.anthropic, p),
-    callGemini(keys.gemini, p),
+    callGrok(keys.gemini, p),
   ]);
   return { openai, anthropic, gemini };
 }
@@ -332,7 +331,7 @@ async function handleReview(keys, prompt, target, sharedContext, memoryContext) 
 function callAI(keys, ai, prompt) {
   if (ai === "openai")    return callOpenAI(keys.openai, prompt);
   if (ai === "anthropic") return callAnthropic(keys.anthropic, prompt);
-  if (ai === "gemini")    return callGemini(keys.gemini, prompt);
+  if (ai === "gemini")    return callGrok(keys.gemini, prompt);
   return Promise.resolve({ ok: false, text: `不明な AI: ${ai}` });
 }
 
@@ -383,21 +382,24 @@ async function callAnthropic(apiKey, prompt) {
   }
 }
 
-/** Google — Gemini 1.5 Pro */
-async function callGemini(apiKey, prompt) {
+/** xAI — Grok */
+async function callGrok(apiKey, prompt) {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
-    const res = await fetch(url, {
+    const res = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization:  `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
-        contents:         [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1500 },
+        model:      "grok-4.3",
+        messages:   [{ role: "user", content: prompt }],
+        max_tokens: 1000,
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || "Gemini error");
-    return { ok: true, text: data.candidates[0].content.parts[0].text };
+    if (!res.ok) throw new Error(data.error?.message || "xAI error");
+    return { ok: true, text: data.choices[0].message.content };
   } catch (e) {
     return { ok: false, text: `エラー: ${e.message}` };
   }
