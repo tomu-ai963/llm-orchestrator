@@ -1,0 +1,11 @@
+name       = "llm-council-worker"
+main       = "worker/index.js"
+workers_dev = true
+
+# Cloudflare Workers runtime
+compatibility_date = "2024-01-01"
+
+# KV バインディング（COUNCIL_KV）
+[[kv_namespaces]]
+binding  = "COUNCIL_KV"
+id       = "5fea04bff11f4b1f94d1dae4aa3d816c"

@@ -13,6 +13,8 @@
     --accent-openai: #10b981;
     --accent-anthropic: #f97316;
     --accent-gemini: #3b82f6;
+    --accent-review: #f59e0b;
+    --accent-council: #c084fc;
     --text: #e2e8f0;
     --text-muted: #64748b;
     --error: #ef4444;
@@ -29,13 +31,13 @@
     flex-direction: column;
   }
 
-  /* ── ヘッダー ── */
+  /* ─────────────────────── ヘッダー ─────────────────────── */
   header {
-    padding: 28px 32px 20px;
+    padding: 24px 32px 18px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: baseline;
-    gap: 16px;
+    gap: 14px;
   }
 
   header h1 {
@@ -46,22 +48,103 @@
     color: #fff;
   }
 
-  header span {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    letter-spacing: 0.15em;
+  #mode-badge {
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 3px;
+    border: 1px solid;
+    transition: color 0.2s, border-color 0.2s;
   }
 
-  /* ── 入力エリア ── */
+  #mode-badge.mode-ask     { color: var(--accent-openai);   border-color: rgba(16,185,129,0.35); }
+  #mode-badge.mode-council { color: var(--accent-council);  border-color: rgba(192,132,252,0.35); }
+  #mode-badge.mode-review  { color: var(--accent-review);   border-color: rgba(245,158,11,0.35); }
+
+  /* ─────────────────────── 入力エリア ─────────────────────── */
   .input-section {
-    padding: 24px 32px;
+    padding: 20px 32px;
     border-bottom: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
   }
 
+  /* ── モードセレクター（セグメントコントロール） ── */
+  .mode-selector {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+    width: fit-content;
+  }
+
+  .mode-btn {
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 9px 22px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .mode-btn:last-child { border-right: none; }
+  .mode-btn:hover { background: var(--surface); color: var(--text); }
+
+  .mode-btn.active[data-mode="ask"]     { background: var(--surface); color: var(--accent-openai); }
+  .mode-btn.active[data-mode="council"] { background: var(--surface); color: var(--accent-council); }
+  .mode-btn.active[data-mode="review"]  { background: var(--surface); color: var(--accent-review); }
+
+  /* ── AIセレクター行（ASK / REVIEW） ── */
+  .ai-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: fadeIn 0.15s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+
+  .ai-selector-row label {
+    font-size: 0.67rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    min-width: 72px;
+  }
+
+  .ai-btns { display: flex; gap: 6px; }
+
+  .ai-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .ai-btn:hover { background: var(--surface); color: var(--text); }
+
+  .ai-btn[data-ai="openai"].active    { border-color: var(--accent-openai);    color: var(--accent-openai);    background: rgba(16,185,129,0.08); }
+  .ai-btn[data-ai="anthropic"].active { border-color: var(--accent-anthropic); color: var(--accent-anthropic); background: rgba(249,115,22,0.08); }
+  .ai-btn[data-ai="gemini"].active    { border-color: var(--accent-gemini);    color: var(--accent-gemini);    background: rgba(59,130,246,0.08); }
+
+  /* ── 認証行 ── */
   .auth-row {
     display: flex;
     gap: 10px;
@@ -69,7 +152,7 @@
   }
 
   .auth-row label {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     color: var(--text-muted);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -89,29 +172,77 @@
     transition: border-color 0.2s;
   }
 
-  input[type="password"]:focus {
-    border-color: #4a4a6a;
-  }
+  input[type="password"]:focus { border-color: #4a4a6a; }
 
+  /* ── テキストエリア共通 ── */
   textarea {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     padding: 14px 16px;
     border-radius: 4px;
     resize: vertical;
     min-height: 90px;
     outline: none;
     transition: border-color 0.2s;
-    line-height: 1.6;
+    line-height: 1.65;
   }
 
-  textarea:focus {
-    border-color: #4a4a6a;
+  textarea:focus { border-color: #4a4a6a; }
+
+  /* ── 共有コンテキスト ── */
+  .context-section { display: flex; flex-direction: column; gap: 8px; }
+
+  .context-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.67rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 2px 0;
+    transition: color 0.15s;
+    width: fit-content;
   }
 
+  .context-toggle:hover { color: var(--text); }
+
+  .context-arrow {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 0.6rem;
+    line-height: 1;
+  }
+
+  .context-toggle.open .context-arrow { transform: rotate(90deg); }
+
+  .context-body {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .context-body.open { display: flex; }
+
+  .context-body textarea {
+    min-height: 75px;
+    font-size: 0.8rem;
+    border-color: #22223a;
+  }
+
+  .context-hint {
+    font-size: 0.63rem;
+    color: var(--text-muted);
+  }
+
+  /* ── 送信行 ── */
   .send-row {
     display: flex;
     justify-content: flex-end;
@@ -119,10 +250,7 @@
     align-items: center;
   }
 
-  #status-msg {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
+  #status-msg { font-size: 0.75rem; color: var(--text-muted); }
 
   button#send-btn {
     background: #fff;
@@ -142,29 +270,62 @@
   button#send-btn:active { transform: scale(0.98); }
   button#send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  /* ── 結果グリッド ── */
-  .results {
-    flex: 1;
+  /* ─────────────────────── 結果エリア ─────────────────────── */
+  #results-area { border-bottom: 1px solid var(--border); }
+
+  /* COUNCIL: 3カラム */
+  .results-council {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0;
   }
 
+  /* ASK: 1カラム全幅 */
+  .results-ask {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  /* REVIEW: 2カラム上段 + 全幅下段 */
+  .results-review-top {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .results-review-bottom {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  /* ── パネル共通 ── */
   .panel {
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    min-height: 400px;
+    min-height: 320px;
   }
 
   .panel:last-child { border-right: none; }
 
+  /* REVIEW 統合パネル: ゴールドアクセント */
+  .panel-synthesis {
+    border: none;
+    border-top: 2px solid var(--accent-review);
+    min-height: 220px;
+    background: rgba(245,158,11,0.025);
+  }
+
   .panel-header {
-    padding: 14px 20px;
+    padding: 13px 20px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+
+  .panel-synthesis .panel-header {
+    background: rgba(245,158,11,0.04);
+    border-bottom-color: rgba(245,158,11,0.12);
   }
 
   .dot {
@@ -174,9 +335,10 @@
     flex-shrink: 0;
   }
 
-  .panel-openai   .dot { background: var(--accent-openai); }
+  .panel-openai    .dot { background: var(--accent-openai); }
   .panel-anthropic .dot { background: var(--accent-anthropic); }
-  .panel-gemini   .dot { background: var(--accent-gemini); }
+  .panel-gemini    .dot { background: var(--accent-gemini); }
+  .panel-synthesis .dot { background: var(--accent-review); }
 
   .panel-name {
     font-size: 0.7rem;
@@ -185,25 +347,43 @@
     text-transform: uppercase;
   }
 
-  .panel-openai   .panel-name { color: var(--accent-openai); }
+  .panel-openai    .panel-name { color: var(--accent-openai); }
   .panel-anthropic .panel-name { color: var(--accent-anthropic); }
-  .panel-gemini   .panel-name { color: var(--accent-gemini); }
+  .panel-gemini    .panel-name { color: var(--accent-gemini); }
+  .panel-synthesis .panel-name { color: var(--accent-review); }
 
   .panel-model {
-    font-size: 0.65rem;
+    font-size: 0.63rem;
     color: var(--text-muted);
     margin-left: auto;
+  }
+
+  .synthesis-tag {
+    font-size: 0.58rem;
+    color: var(--accent-review);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 3px;
+    margin-left: 8px;
   }
 
   .panel-body {
     flex: 1;
     padding: 20px;
     font-size: 0.82rem;
-    line-height: 1.75;
+    line-height: 1.78;
     color: #c8d0dc;
     white-space: pre-wrap;
     word-break: break-word;
     overflow-y: auto;
+  }
+
+  .panel-synthesis .panel-body {
+    font-size: 0.86rem;
+    color: #e2d8c0;
+    line-height: 1.8;
   }
 
   .panel-body.empty {
@@ -212,16 +392,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 0.78rem;
   }
 
   .panel-body.error { color: var(--error); }
 
-  /* ローディング */
+  /* ── ローディングバー ── */
   .loading-bar {
     height: 2px;
     background: var(--border);
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
   }
 
   .loading-bar.active::after {
@@ -234,160 +416,584 @@
     animation: slide 1.2s ease-in-out infinite;
   }
 
-  .panel-openai   .loading-bar.active::after { background: var(--accent-openai); }
+  .panel-openai    .loading-bar.active::after { background: var(--accent-openai); }
   .panel-anthropic .loading-bar.active::after { background: var(--accent-anthropic); }
-  .panel-gemini   .loading-bar.active::after { background: var(--accent-gemini); }
+  .panel-gemini    .loading-bar.active::after { background: var(--accent-gemini); }
+  .panel-synthesis .loading-bar.active::after { background: var(--accent-review); }
 
   @keyframes slide {
     0%   { left: -40%; }
     100% { left: 100%; }
   }
 
-  /* モバイル */
+  /* ─────────────────────── 履歴セクション ─────────────────────── */
+  .history-section {
+    padding: 24px 32px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+  }
+
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .history-title {
+    font-size: 0.67rem;
+    color: var(--text-muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    padding: 5px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .clear-btn:hover { color: var(--error); border-color: rgba(239,68,68,0.5); }
+
+  .history-empty {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 20px 0 4px;
+  }
+
+  /* ── 履歴エントリ ── */
+  .history-entry {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .history-entry-hdr {
+    padding: 10px 16px;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+  }
+
+  .history-entry-hdr:hover { background: #151520; }
+
+  .history-chevron {
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .history-entry-hdr.open .history-chevron { transform: rotate(90deg); }
+
+  .mode-tag {
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .mode-tag-ask     { background: rgba(16,185,129,0.12);  color: var(--accent-openai); }
+  .mode-tag-council { background: rgba(192,132,252,0.12); color: var(--accent-council); }
+  .mode-tag-review  { background: rgba(245,158,11,0.12);  color: var(--accent-review); }
+
+  .history-q {
+    font-size: 0.77rem;
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .history-ts {
+    font-size: 0.63rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .history-entry-body {
+    display: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .history-entry-body.open { display: block; }
+
+  .history-response {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+    line-height: 1.72;
+    color: #c8d0dc;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .history-response:last-child { border-bottom: none; }
+
+  .history-response.is-synthesis {
+    background: rgba(245,158,11,0.025);
+    color: #e2d8c0;
+  }
+
+  .history-resp-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .resp-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .synth-chip {
+    font-size: 0.56rem;
+    color: var(--accent-review);
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 2px;
+    padding: 1px 5px;
+    margin-left: 4px;
+  }
+
+  /* ─────────────────────── モバイル ─────────────────────── */
   @media (max-width: 768px) {
-    header { padding: 20px 16px 14px; }
-    .input-section { padding: 16px; }
-    .results { grid-template-columns: 1fr; }
+    header { padding: 18px 16px 14px; }
+    .input-section { padding: 14px 16px; }
+    .results-council { grid-template-columns: 1fr; }
+    .results-review-top { grid-template-columns: 1fr; }
     .panel { border-right: none; border-bottom: 1px solid var(--border); }
     .panel:last-child { border-bottom: none; }
+    .panel-synthesis { border-top: 2px solid var(--accent-review); border-bottom: none; }
+    .history-section { padding: 16px 16px 24px; }
+    .mode-selector { width: 100%; }
+    .mode-btn { flex: 1; text-align: center; padding: 9px 8px; }
   }
 </style>
 </head>
 <body>
 
+<!-- ═══════════════════════ ヘッダー ═══════════════════════ -->
 <header>
   <h1>LLM Council</h1>
-  <span>3AI simultaneous query</span>
+  <span id="mode-badge" class="mode-council">council</span>
 </header>
 
+<!-- ═══════════════════════ 入力エリア ═══════════════════════ -->
 <div class="input-section">
+
+  <!-- モード選択 -->
+  <div class="mode-selector">
+    <button class="mode-btn" data-mode="ask">ASK</button>
+    <button class="mode-btn active" data-mode="council">COUNCIL</button>
+    <button class="mode-btn" data-mode="review">REVIEW</button>
+  </div>
+
+  <!-- ASKモード: AI選択 -->
+  <div class="ai-selector-row" id="ask-target-row" style="display:none">
+    <label>AI を選択</label>
+    <div class="ai-btns" id="ask-ai-btns">
+      <button class="ai-btn active" data-ai="openai">OpenAI</button>
+      <button class="ai-btn" data-ai="anthropic">Anthropic</button>
+      <button class="ai-btn" data-ai="gemini">Gemini</button>
+    </div>
+  </div>
+
+  <!-- REVIEWモード: ターゲット選択 -->
+  <div class="ai-selector-row" id="review-target-row" style="display:none">
+    <label>統合担当AI</label>
+    <div class="ai-btns" id="review-ai-btns">
+      <button class="ai-btn" data-ai="openai">OpenAI</button>
+      <button class="ai-btn active" data-ai="anthropic">Anthropic</button>
+      <button class="ai-btn" data-ai="gemini">Gemini</button>
+    </div>
+  </div>
+
+  <!-- 認証 -->
   <div class="auth-row">
     <label>Password</label>
     <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
   </div>
-  <textarea id="prompt" placeholder="質問を入力してください..."></textarea>
+
+  <!-- プロンプト -->
+  <textarea id="prompt" placeholder="質問を入力してください...  （Shift + Enter で送信）"></textarea>
+
+  <!-- 共有コンテキスト（折りたたみ） -->
+  <div class="context-section">
+    <button class="context-toggle" id="context-toggle">
+      <span class="context-arrow">▶</span>
+      共有コンテキスト（任意）
+    </button>
+    <div class="context-body" id="context-body">
+      <textarea id="shared-context"
+        placeholder="全AIに共有するコンテキスト情報（プロジェクト背景、前提条件など）..."></textarea>
+      <span class="context-hint">※ セッション中はブラウザに保存されます</span>
+    </div>
+  </div>
+
+  <!-- 送信 -->
   <div class="send-row">
     <span id="status-msg"></span>
     <button id="send-btn">SEND →</button>
   </div>
 </div>
 
-<div class="results">
-  <!-- OpenAI -->
-  <div class="panel panel-openai">
-    <div class="panel-header">
-      <div class="dot"></div>
-      <span class="panel-name">OpenAI</span>
-      <span class="panel-model">gpt-4o</span>
-    </div>
-    <div class="loading-bar" id="bar-openai"></div>
-    <div class="panel-body empty" id="body-openai">awaiting query...</div>
-  </div>
+<!-- ═══════════════════════ 結果エリア（動的生成） ═══════════════════════ -->
+<div id="results-area"></div>
 
-  <!-- Anthropic -->
-  <div class="panel panel-anthropic">
-    <div class="panel-header">
-      <div class="dot"></div>
-      <span class="panel-name">Anthropic</span>
-      <span class="panel-model">claude-haiku</span>
-    </div>
-    <div class="loading-bar" id="bar-anthropic"></div>
-    <div class="panel-body empty" id="body-anthropic">awaiting query...</div>
+<!-- ═══════════════════════ 履歴 ═══════════════════════ -->
+<div class="history-section">
+  <div class="history-header">
+    <span class="history-title">履歴</span>
+    <button class="clear-btn" id="clear-btn">履歴をクリア</button>
   </div>
-
-  <!-- Gemini -->
-  <div class="panel panel-gemini">
-    <div class="panel-header">
-      <div class="dot"></div>
-      <span class="panel-name">Gemini</span>
-      <span class="panel-model">gemini-1.5-pro</span>
-    </div>
-    <div class="loading-bar" id="bar-gemini"></div>
-    <div class="panel-body empty" id="body-gemini">awaiting query...</div>
-  </div>
+  <div id="history-empty" class="history-empty">履歴はありません</div>
+  <div id="history-entries"></div>
 </div>
 
 <script>
-  const WORKER_URL = "https://llm-council-worker.inverted-triangle-leef.workers.dev";
+/* ═══════════════════════════════════════════════════════════
+   定数・設定
+════════════════════════════════════════════════════════════ */
+const WORKER_URL = "https://llm-council-worker.inverted-triangle-leef.workers.dev";
 
-  const sendBtn = document.getElementById("send-btn");
-  const statusMsg = document.getElementById("status-msg");
+const AI_LABEL = { openai: "OpenAI", anthropic: "Anthropic", gemini: "Gemini" };
+const AI_MODEL = { openai: "gpt-4o", anthropic: "claude-haiku", gemini: "gemini-1.5-pro" };
+const AI_ALL   = ["openai", "anthropic", "gemini"];
 
-  sendBtn.addEventListener("click", async () => {
-    const password = document.getElementById("password").value.trim();
-    const prompt = document.getElementById("prompt").value.trim();
+/* ═══════════════════════════════════════════════════════════
+   状態
+════════════════════════════════════════════════════════════ */
+let currentMode  = "council";
+let askTarget    = "openai";
+let reviewTarget = "anthropic";
 
-    if (!password) { setStatus("パスワードを入力してください"); return; }
-    if (!prompt)   { setStatus("質問を入力してください"); return; }
+/* ═══════════════════════════════════════════════════════════
+   DOM 参照
+════════════════════════════════════════════════════════════ */
+const $  = id => document.getElementById(id);
+const sendBtn     = $("send-btn");
+const statusMsg   = $("status-msg");
+const resultsArea = $("results-area");
+const modeBadge   = $("mode-badge");
+const historyList = $("history-entries");
+const historyEmpty = $("history-empty");
 
-    setLoading(true);
-    setStatus("送信中...");
-    resetPanels();
+/* ═══════════════════════════════════════════════════════════
+   localStorage 復元
+════════════════════════════════════════════════════════════ */
+(function restoreLocal() {
+  const pw  = localStorage.getItem("llm-council-pw");
+  const ctx = localStorage.getItem("llm-council-ctx");
+  if (pw)  $("password").value       = pw;
+  if (ctx) $("shared-context").value = ctx;
+})();
 
-    try {
-      const res = await fetch(WORKER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, prompt }),
-      });
+$("password").addEventListener("change",       e => localStorage.setItem("llm-council-pw",  e.target.value));
+$("shared-context").addEventListener("input",  e => localStorage.setItem("llm-council-ctx", e.target.value));
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setStatus(data.error || "エラーが発生しました");
-        setLoading(false);
-        return;
-      }
-
-      renderPanel("openai",    data.openai);
-      renderPanel("anthropic", data.anthropic);
-      renderPanel("gemini",    data.gemini);
-      setStatus("");
-
-    } catch (e) {
-      setStatus("接続エラー: " + e.message);
-    } finally {
-      setLoading(false);
-    }
+/* ═══════════════════════════════════════════════════════════
+   モード切り替え
+════════════════════════════════════════════════════════════ */
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentMode = btn.dataset.mode;
+    applyModeUI();
   });
+});
 
-  function renderPanel(id, result) {
-    const el = document.getElementById("body-" + id);
-    el.classList.remove("empty", "error");
-    if (result.ok) {
-      el.textContent = result.text;
-    } else {
-      el.classList.add("error");
-      el.textContent = result.text;
+function applyModeUI() {
+  $("ask-target-row").style.display    = currentMode === "ask"    ? "flex" : "none";
+  $("review-target-row").style.display = currentMode === "review" ? "flex" : "none";
+
+  modeBadge.textContent = currentMode;
+  modeBadge.className   = "mode-" + currentMode;
+
+  resultsArea.innerHTML = "";  // モード変更時に結果クリア
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AI選択ボタン（ASK）
+════════════════════════════════════════════════════════════ */
+document.querySelectorAll("#ask-ai-btns .ai-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#ask-ai-btns .ai-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    askTarget = btn.dataset.ai;
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   AI選択ボタン（REVIEW ターゲット）
+════════════════════════════════════════════════════════════ */
+document.querySelectorAll("#review-ai-btns .ai-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#review-ai-btns .ai-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    reviewTarget = btn.dataset.ai;
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   共有コンテキスト 折りたたみ
+════════════════════════════════════════════════════════════ */
+$("context-toggle").addEventListener("click", () => {
+  $("context-toggle").classList.toggle("open");
+  $("context-body").classList.toggle("open");
+});
+
+/* ═══════════════════════════════════════════════════════════
+   送信
+════════════════════════════════════════════════════════════ */
+sendBtn.addEventListener("click", async () => {
+  const password       = $("password").value.trim();
+  const prompt         = $("prompt").value.trim();
+  const shared_context = $("shared-context").value.trim();
+
+  if (!password) { setStatus("パスワードを入力してください"); return; }
+  if (!prompt)   { setStatus("質問を入力してください");       return; }
+
+  // ── ローディング開始 ──
+  sendBtn.disabled = true;
+  setStatus("送信中...");
+  renderSkeleton();  // ローディングバーつきスケルトンを描画
+
+  // ── リクエスト組み立て ──
+  const body = {
+    password,
+    prompt,
+    mode: currentMode,
+    ...(shared_context && { shared_context }),
+  };
+  if (currentMode === "ask")    body.target = askTarget;
+  if (currentMode === "review") body.target = reviewTarget;
+
+  try {
+    const res  = await fetch(WORKER_URL, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(body),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setStatus(data.error || "エラーが発生しました");
+      return;
     }
-  }
 
-  function resetPanels() {
-    ["openai", "anthropic", "gemini"].forEach(id => {
-      const el = document.getElementById("body-" + id);
-      el.className = "panel-body empty";
-      el.textContent = "loading...";
+    renderResults(data);
+    addHistory(prompt, data);
+    setStatus("");
+
+  } catch (e) {
+    setStatus("接続エラー: " + e.message);
+  } finally {
+    sendBtn.disabled = false;
+    // ローディングバーを停止
+    resultsArea.querySelectorAll(".loading-bar").forEach(b => b.classList.remove("active"));
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   スケルトン描画（ローディング中の仮パネル）
+════════════════════════════════════════════════════════════ */
+function renderSkeleton() {
+  if (currentMode === "ask") {
+    resultsArea.innerHTML = `
+      <div class="results-ask">
+        ${panel(askTarget, "p-main", "loading...", true)}
+      </div>`;
+  } else if (currentMode === "council") {
+    resultsArea.innerHTML = `
+      <div class="results-council">
+        ${panel("openai",    "p-openai",    "loading...", true)}
+        ${panel("anthropic", "p-anthropic", "loading...", true)}
+        ${panel("gemini",    "p-gemini",    "loading...", true)}
+      </div>`;
+  } else {
+    // review
+    const others = AI_ALL.filter(a => a !== reviewTarget);
+    resultsArea.innerHTML = `
+      <div class="results-review-top">
+        ${panel(others[0], "p-" + others[0], "loading...", true)}
+        ${panel(others[1], "p-" + others[1], "loading...", true)}
+      </div>
+      <div class="results-review-bottom">
+        ${synthPanel(reviewTarget, "p-synthesis", "loading...", true)}
+      </div>`;
+  }
+}
+
+/* ── パネル HTML テンプレート ── */
+function panel(ai, id, text, loading = false) {
+  return `
+    <div class="panel panel-${ai}">
+      <div class="panel-header">
+        <div class="dot"></div>
+        <span class="panel-name">${AI_LABEL[ai]}</span>
+        <span class="panel-model">${AI_MODEL[ai]}</span>
+      </div>
+      <div class="loading-bar${loading ? " active" : ""}"></div>
+      <div class="panel-body${loading ? " empty" : ""}" id="${id}">${esc(text)}</div>
+    </div>`;
+}
+
+function synthPanel(ai, id, text, loading = false) {
+  return `
+    <div class="panel panel-${ai} panel-synthesis">
+      <div class="panel-header">
+        <div class="dot"></div>
+        <span class="panel-name">${AI_LABEL[ai]}</span>
+        <span class="panel-model">${AI_MODEL[ai]}</span>
+        <span class="synthesis-tag">統合回答</span>
+      </div>
+      <div class="loading-bar${loading ? " active" : ""}"></div>
+      <div class="panel-body${loading ? " empty" : ""}" id="${id}">${esc(text)}</div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   結果描画
+════════════════════════════════════════════════════════════ */
+function renderResults(data) {
+  if (currentMode === "ask") {
+    fillPanel("p-main", data[askTarget]);
+  } else if (currentMode === "council") {
+    AI_ALL.forEach(ai => fillPanel("p-" + ai, data[ai]));
+  } else {
+    // review
+    const others = AI_ALL.filter(a => a !== reviewTarget);
+    others.forEach(ai => fillPanel("p-" + ai, data[ai]));
+    // 統合回答: data.review > data[reviewTarget]
+    fillPanel("p-synthesis", data.review || data[reviewTarget]);
+  }
+}
+
+function fillPanel(id, result) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove("empty", "error");
+  if (result && result.ok) {
+    el.textContent = result.text;
+  } else {
+    el.classList.add("error");
+    el.textContent = (result && result.text) ? result.text : "エラーが発生しました";
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   履歴
+════════════════════════════════════════════════════════════ */
+function addHistory(prompt, data) {
+  historyEmpty.style.display = "none";
+
+  const ts = new Date().toLocaleTimeString("ja-JP", {
+    hour: "2-digit", minute: "2-digit", second: "2-digit"
+  });
+  const shortQ = prompt.length > 70 ? prompt.slice(0, 70) + "…" : prompt;
+
+  // 表示する回答一覧を構築
+  const resps = [];
+  if (currentMode === "ask") {
+    resps.push({ ai: askTarget, result: data[askTarget] });
+  } else if (currentMode === "council") {
+    AI_ALL.forEach(ai => resps.push({ ai, result: data[ai] }));
+  } else {
+    const others = AI_ALL.filter(a => a !== reviewTarget);
+    others.forEach(ai => resps.push({ ai, result: data[ai] }));
+    resps.push({
+      ai: reviewTarget,
+      result: data.review || data[reviewTarget],
+      isSynth: true,
     });
   }
 
-  function setLoading(on) {
-    sendBtn.disabled = on;
-    ["bar-openai", "bar-anthropic", "bar-gemini"].forEach(id => {
-      document.getElementById(id).className = "loading-bar" + (on ? " active" : "");
-    });
-  }
+  const respHtml = resps.map(({ ai, result, isSynth }) => `
+    <div class="history-response${isSynth ? " is-synthesis" : ""}">
+      <div class="history-resp-label" style="color:var(--accent-${ai})">
+        <div class="resp-dot" style="background:var(--accent-${ai})"></div>
+        ${AI_LABEL[ai]}
+        ${isSynth ? '<span class="synth-chip">統合</span>' : ""}
+      </div>
+      ${result && result.ok
+        ? esc(result.text)
+        : `<span style="color:var(--error)">${esc((result && result.text) || "エラー")}</span>`}
+    </div>`).join("");
 
-  function setStatus(msg) {
-    statusMsg.textContent = msg;
-  }
+  const entry = document.createElement("div");
+  entry.className = "history-entry";
+  entry.innerHTML = `
+    <div class="history-entry-hdr">
+      <span class="history-chevron">▶</span>
+      <span class="mode-tag mode-tag-${currentMode}">${currentMode.toUpperCase()}</span>
+      <span class="history-q">${esc(shortQ)}</span>
+      <span class="history-ts">${ts}</span>
+    </div>
+    <div class="history-entry-body">
+      ${respHtml}
+    </div>`;
 
-  // Enter + Shift で送信
-  document.getElementById("prompt").addEventListener("keydown", e => {
-    if (e.key === "Enter" && e.shiftKey) {
-      e.preventDefault();
-      sendBtn.click();
-    }
+  entry.querySelector(".history-entry-hdr").addEventListener("click", function () {
+    this.classList.toggle("open");
+    entry.querySelector(".history-entry-body").classList.toggle("open");
   });
+
+  // 最新を先頭に
+  historyList.insertBefore(entry, historyList.firstChild);
+}
+
+$("clear-btn").addEventListener("click", () => {
+  historyList.innerHTML = "";
+  historyEmpty.style.display = "";
+});
+
+/* ═══════════════════════════════════════════════════════════
+   ユーティリティ
+════════════════════════════════════════════════════════════ */
+function setStatus(msg) { statusMsg.textContent = msg; }
+
+function esc(str) {
+  if (typeof str !== "string") return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/* Shift+Enter で送信 */
+$("prompt").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.shiftKey) {
+    e.preventDefault();
+    sendBtn.click();
+  }
+});
 </script>
 </body>
 </html>
