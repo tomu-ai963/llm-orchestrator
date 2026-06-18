@@ -1,0 +1,10 @@
+{
+  "name": "llm-council-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LLM Council Cloudflare Worker (openai / anthropic / grok)",
+  "scripts": {
+    "test": "node --test"
+  }
+}

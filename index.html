@@ -12,7 +12,7 @@
     --border: #1e1e2e;
     --accent-openai: #10b981;
     --accent-anthropic: #f97316;
-    --accent-gemini: #3b82f6;
+    --accent-grok: #3b82f6;
     --accent-review: #f59e0b;
     --accent-council: #c084fc;
     --text: #e2e8f0;
@@ -142,7 +142,7 @@
 
   .ai-btn[data-ai="openai"].active    { border-color: var(--accent-openai);    color: var(--accent-openai);    background: rgba(16,185,129,0.08); }
   .ai-btn[data-ai="anthropic"].active { border-color: var(--accent-anthropic); color: var(--accent-anthropic); background: rgba(249,115,22,0.08); }
-  .ai-btn[data-ai="gemini"].active    { border-color: var(--accent-gemini);    color: var(--accent-gemini);    background: rgba(59,130,246,0.08); }
+  .ai-btn[data-ai="grok"].active    { border-color: var(--accent-grok);    color: var(--accent-grok);    background: rgba(59,130,246,0.08); }
 
   /* ── 認証行 ── */
   .auth-row {
@@ -337,7 +337,7 @@
 
   .panel-openai    .dot { background: var(--accent-openai); }
   .panel-anthropic .dot { background: var(--accent-anthropic); }
-  .panel-gemini    .dot { background: var(--accent-gemini); }
+  .panel-grok    .dot { background: var(--accent-grok); }
   .panel-synthesis .dot { background: var(--accent-review); }
 
   .panel-name {
@@ -349,7 +349,7 @@
 
   .panel-openai    .panel-name { color: var(--accent-openai); }
   .panel-anthropic .panel-name { color: var(--accent-anthropic); }
-  .panel-gemini    .panel-name { color: var(--accent-gemini); }
+  .panel-grok    .panel-name { color: var(--accent-grok); }
   .panel-synthesis .panel-name { color: var(--accent-review); }
 
   .panel-model {
@@ -418,7 +418,7 @@
 
   .panel-openai    .loading-bar.active::after { background: var(--accent-openai); }
   .panel-anthropic .loading-bar.active::after { background: var(--accent-anthropic); }
-  .panel-gemini    .loading-bar.active::after { background: var(--accent-gemini); }
+  .panel-grok    .loading-bar.active::after { background: var(--accent-grok); }
   .panel-synthesis .loading-bar.active::after { background: var(--accent-review); }
 
   @keyframes slide {
@@ -650,7 +650,7 @@
     <div class="ai-btns" id="ask-ai-btns">
       <button class="ai-btn active" data-ai="openai">OpenAI</button>
       <button class="ai-btn" data-ai="anthropic">Anthropic</button>
-      <button class="ai-btn" data-ai="gemini">Grok</button>
+      <button class="ai-btn" data-ai="grok">Grok</button>
     </div>
   </div>
 
@@ -660,7 +660,7 @@
     <div class="ai-btns" id="review-ai-btns">
       <button class="ai-btn" data-ai="openai">OpenAI</button>
       <button class="ai-btn active" data-ai="anthropic">Anthropic</button>
-      <button class="ai-btn" data-ai="gemini">Grok</button>
+      <button class="ai-btn" data-ai="grok">Grok</button>
     </div>
   </div>
 
@@ -713,9 +713,9 @@
 ════════════════════════════════════════════════════════════ */
 const WORKER_URL = "https://llm-council-worker.inverted-triangle-leef.workers.dev";
 
-const AI_LABEL = { openai: "OpenAI", anthropic: "Anthropic", gemini: "Grok" };
-const AI_MODEL = { openai: "gpt-4o", anthropic: "claude-haiku", gemini: "grok-4.3" };
-const AI_ALL   = ["openai", "anthropic", "gemini"];
+const AI_LABEL = { openai: "OpenAI", anthropic: "Anthropic", grok: "Grok" };
+const AI_MODEL = { openai: "gpt-4o", anthropic: "claude-haiku", grok: "grok-4.3" };
+const AI_ALL   = ["openai", "anthropic", "grok"];
 
 /* ═══════════════════════════════════════════════════════════
    状態
@@ -870,7 +870,7 @@ function renderSkeleton() {
       <div class="results-council">
         ${panel("openai",    "p-openai",    "loading...", true)}
         ${panel("anthropic", "p-anthropic", "loading...", true)}
-        ${panel("gemini",    "p-gemini",    "loading...", true)}
+        ${panel("grok",    "p-grok",    "loading...", true)}
       </div>`;
   } else {
     // review

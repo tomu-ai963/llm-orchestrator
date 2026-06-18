@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 from providers.openai_provider import OpenAIProvider
 from providers.anthropic_provider import AnthropicProvider
-from providers.gemini_provider import GeminiProvider
+from providers.grok_provider import GrokProvider
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "data"
@@ -80,9 +80,9 @@ def get_provider(name: str, config: Dict):
     elif name == "anthropic":
         cfg = config.get("anthropic", {})
         return AnthropicProvider(api_key=cfg.get("api_key"), model=cfg.get("model"))
-    elif name == "gemini":
-        cfg = config.get("gemini", {})
-        return GeminiProvider(api_key=cfg.get("api_key"), model=cfg.get("model"))
+    elif name == "grok":
+        cfg = config.get("grok", {})
+        return GrokProvider(api_key=cfg.get("api_key"), model=cfg.get("model"))
     else:
         raise ValueError(f"未知のモデル名: {name}")
 
@@ -118,7 +118,7 @@ def cmd_ask(args, config):
 def cmd_council(args, config):
     context = load_shared_context(DATA_DIR)
     prompt = build_prompt(args.question, context)
-    for model_name in ["openai", "anthropic", "gemini"]:
+    for model_name in ["openai", "anthropic", "grok"]:
         provider = get_provider(model_name, config)
         try:
             answer = provider.send_message(prompt)
@@ -131,7 +131,7 @@ def cmd_council(args, config):
 
 def cmd_review(args, config):
     context = load_shared_context(DATA_DIR)
-    other_models = [m for m in ["openai", "anthropic", "gemini"] if m != args.target.lower()]
+    other_models = [m for m in ["openai", "anthropic", "grok"] if m != args.target.lower()]
     base_prompt = build_prompt(args.question, context)
     summaries = []
     for model_name in other_models:
@@ -168,14 +168,14 @@ def build_parser():
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("status").set_defaults(func=cmd_status)
     p_ask = subparsers.add_parser("ask")
-    p_ask.add_argument("model", choices=["openai", "anthropic", "gemini"])
+    p_ask.add_argument("model", choices=["openai", "anthropic", "grok"])
     p_ask.add_argument("question")
     p_ask.set_defaults(func=cmd_ask)
     p_council = subparsers.add_parser("council")
     p_council.add_argument("question")
     p_council.set_defaults(func=cmd_council)
     p_review = subparsers.add_parser("review")
-    p_review.add_argument("target", choices=["openai", "anthropic", "gemini"])
+    p_review.add_argument("target", choices=["openai", "anthropic", "grok"])
     p_review.add_argument("question")
     p_review.set_defaults(func=cmd_review)
     subparsers.add_parser("sync").set_defaults(func=cmd_sync)

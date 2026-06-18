@@ -7,9 +7,9 @@
     "api_key": "YOUR_ANTHROPIC_API_KEY",
     "model": "claude-sonnet-4-6"
   },
-  "gemini": {
-    "api_key": "YOUR_GOOGLE_GEMINI_API_KEY",
-    "model": "gemini-2.0-flash"
+  "grok": {
+    "api_key": "YOUR_XAI_API_KEY",
+    "model": "grok-4.3"
   },
   "context_files": {
     "shared_context": "data/shared_context.md",

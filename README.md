@@ -1,6 +1,6 @@
 # LLM Orchestrator
 
-TermuxからClaude・ChatGPT・Geminiを一括操作できるマルチLLM CLIツール。
+TermuxからClaude・ChatGPT・Grok(xAI)を一括操作できるマルチLLM CLIツール。
 
 ## 概要
 
