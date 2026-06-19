@@ -372,7 +372,7 @@ export async function callOpenAI(apiKey, prompt) {
   }
 }
 
-/** Anthropic — Claude Haiku */
+/** Anthropic — Claude Opus 4.8 */
 export async function callAnthropic(apiKey, prompt) {
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -383,7 +383,7 @@ export async function callAnthropic(apiKey, prompt) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
+        model:      "claude-opus-4-8",
         max_tokens: 1500,
         messages:   [{ role: "user", content: prompt }],
       }),
