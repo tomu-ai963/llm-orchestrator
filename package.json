@@ -6,5 +6,8 @@
   "description": "LLM Council Cloudflare Worker (openai / anthropic / grok)",
   "scripts": {
     "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.102.0"
   }
 }
