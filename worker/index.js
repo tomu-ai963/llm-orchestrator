@@ -34,6 +34,13 @@ export const AI_LABEL = { openai: "OpenAI", anthropic: "Anthropic", grok: "Grok"
 export const MAX_PROMPT_LEN  = 8000;
 export const MAX_CONTEXT_LEN = 16000;
 
+// 各プロバイダー共通の出力上限（council 比較の公平性のため統一）。
+export const MAX_TOKENS = 1500;
+
+// 各プロバイダー呼び出しのタイムアウト（ms）。
+// 1AI の遅延が council 全体を引きずり Worker の実行時間制限に当たるのを防ぐ。
+export const REQUEST_TIMEOUT_MS = 30000;
+
 /* ═══════════════════════════════════════════════════════════
    エントリーポイント
 ════════════════════════════════════════════════════════════ */
@@ -349,10 +356,29 @@ export function callAI(keys, ai, prompt) {
   return Promise.resolve({ ok: false, text: `不明な AI: ${ai}` });
 }
 
+/**
+ * タイムアウト付き fetch。AbortController で REQUEST_TIMEOUT_MS 経過後に中断する。
+ * 中断時は fetch が AbortError を throw するので、呼び出し側の try/catch で捕捉される。
+ */
+export async function fetchWithTimeout(url, init, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 例外を統一フォーマットの ok:false に変換（AbortError はタイムアウト表記）。 */
+function errResult(e) {
+  return { ok: false, text: `エラー: ${e.name === "AbortError" ? "タイムアウト" : e.message}` };
+}
+
 /** OpenAI — GPT-4o */
 export async function callOpenAI(apiKey, prompt) {
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -361,21 +387,23 @@ export async function callOpenAI(apiKey, prompt) {
       body: JSON.stringify({
         model:      "gpt-4o",
         messages:   [{ role: "user", content: prompt }],
-        max_tokens: 1500,
+        max_tokens: MAX_TOKENS,
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || "OpenAI error");
-    return { ok: true, text: data.choices[0].message.content };
+    const text = data?.choices?.[0]?.message?.content;
+    if (typeof text !== "string") throw new Error("OpenAI: 応答形式が不正です");
+    return { ok: true, text };
   } catch (e) {
-    return { ok: false, text: `エラー: ${e.message}` };
+    return errResult(e);
   }
 }
 
 /** Anthropic — Claude Opus 4.8 */
 export async function callAnthropic(apiKey, prompt) {
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type":      "application/json",
@@ -384,22 +412,24 @@ export async function callAnthropic(apiKey, prompt) {
       },
       body: JSON.stringify({
         model:      "claude-opus-4-8",
-        max_tokens: 1500,
+        max_tokens: MAX_TOKENS,
         messages:   [{ role: "user", content: prompt }],
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || "Anthropic error");
-    return { ok: true, text: data.content[0].text };
+    const text = data?.content?.[0]?.text;
+    if (typeof text !== "string") throw new Error("Anthropic: 応答形式が不正です");
+    return { ok: true, text };
   } catch (e) {
-    return { ok: false, text: `エラー: ${e.message}` };
+    return errResult(e);
   }
 }
 
 /** xAI — Grok（OpenAI 互換フォーマット） */
 export async function callGrok(apiKey, prompt) {
   try {
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    const res = await fetchWithTimeout("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -408,7 +438,7 @@ export async function callGrok(apiKey, prompt) {
       body: JSON.stringify({
         model:      "grok-4.3",
         messages:   [{ role: "user", content: prompt }],
-        max_tokens: 1000,
+        max_tokens: MAX_TOKENS,
       }),
     });
     const data = await res.json();
@@ -417,7 +447,7 @@ export async function callGrok(apiKey, prompt) {
     if (typeof text !== "string") throw new Error("xAI: 応答形式が不正です");
     return { ok: true, text };
   } catch (e) {
-    return { ok: false, text: `エラー: ${e.message}` };
+    return errResult(e);
   }
 }
 

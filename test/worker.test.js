@@ -15,11 +15,15 @@ import worker, {
   handleAsk,
   handleReview,
   callAI,
+  callOpenAI,
+  callAnthropic,
   callGrok,
+  fetchWithTimeout,
   AI_ALL,
   AI_LABEL,
   MAX_PROMPT_LEN,
   MAX_CONTEXT_LEN,
+  MAX_TOKENS,
 } from "../worker/index.js";
 
 /* ── テストダブル ───────────────────────────────────────── */
@@ -282,6 +286,72 @@ test("callGrok は応答形式不正で ok:false を返す", async () => {
 test("callAI は未知 AI で ok:false", async () => {
   const r = await callAI({}, "unknown", "Q");
   assert.equal(r.ok, false);
+});
+
+test("callOpenAI は応答形式不正で ok:false", async () => {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({}) });
+  const r = await callOpenAI("sk", "Q");
+  assert.equal(r.ok, false);
+  assert.match(r.text, /応答形式/);
+});
+
+test("callAnthropic は応答形式不正で ok:false", async () => {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({}) });
+  const r = await callAnthropic("sk", "Q");
+  assert.equal(r.ok, false);
+  assert.match(r.text, /応答形式/);
+});
+
+/* ── タイムアウト ───────────────────────────────────────── */
+
+test("fetchWithTimeout は中断シグナルで AbortError を throw", async () => {
+  // signal を尊重して永久に解決しない fetch スタブ
+  globalThis.fetch = (url, init) => new Promise((_, reject) => {
+    init.signal.addEventListener("abort", () => {
+      const err = new Error("aborted");
+      err.name = "AbortError";
+      reject(err);
+    });
+  });
+  await assert.rejects(
+    fetchWithTimeout("https://example.com", { method: "POST" }, 10),
+    (e) => e.name === "AbortError",
+  );
+});
+
+test("callOpenAI は AbortError をタイムアウト表記の ok:false に変換", async () => {
+  globalThis.fetch = async () => {
+    const err = new Error("aborted");
+    err.name = "AbortError";
+    throw err;
+  };
+  const r = await callOpenAI("sk", "Q");
+  assert.equal(r.ok, false);
+  assert.match(r.text, /タイムアウト/);
+});
+
+test("各プロバイダー呼び出しは signal 付き fetch を行う", async () => {
+  let sawSignal = false;
+  globalThis.fetch = async (url, init) => {
+    sawSignal = init.signal instanceof AbortSignal;
+    return { ok: true, json: async () => ({ choices: [{ message: { content: "ok" } }] }) };
+  };
+  await callOpenAI("sk", "Q");
+  assert.equal(sawSignal, true);
+});
+
+test("MAX_TOKENS が全プロバイダーの body に反映される", async () => {
+  const bodies = [];
+  globalThis.fetch = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    if (url.includes("anthropic")) return { ok: true, json: async () => ({ content: [{ text: "ok" }] }) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: "ok" } }] }) };
+  };
+  await callOpenAI("k", "Q");
+  await callAnthropic("k", "Q");
+  await callGrok("k", "Q");
+  assert.equal(bodies.length, 3);
+  for (const b of bodies) assert.equal(b.max_tokens, MAX_TOKENS);
 });
 
 /* ── default export ─────────────────────────────────────── */
