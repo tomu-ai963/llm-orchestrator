@@ -5,7 +5,8 @@
   },
   "anthropic": {
     "api_key": "YOUR_ANTHROPIC_API_KEY",
-    "model": "claude-sonnet-4-6"
+    "model": "claude-sonnet-5-5",
+    "effort": "low"
   },
   "grok": {
     "api_key": "YOUR_XAI_API_KEY",

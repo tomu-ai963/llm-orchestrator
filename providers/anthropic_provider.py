@@ -7,9 +7,10 @@ class AnthropicProvider:
     API_URL = "https://api.anthropic.com/v1/messages"
     API_VERSION = "2023-06-01"
 
-    def __init__(self, api_key: Optional[str], model: Optional[str] = None) -> None:
+    def __init__(self, api_key: Optional[str], model: Optional[str] = None, effort: Optional[str] = None) -> None:
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-        self.model = model or "claude-sonnet-4-6"
+        self.model = model or "claude-sonnet-5-5"
+        self.effort = effort or "low"
 
     def send_message(self, prompt: str) -> str:
         if not self.api_key:
@@ -18,10 +19,15 @@ class AnthropicProvider:
             "x-api-key": self.api_key,
             "anthropic-version": self.API_VERSION,
             "Content-Type": "application/json",
+            # 安全分類器で断られたとき、API 側で別モデルに自動で切り替える
+            "anthropic-beta": "server-side-fallback-2026-07-01",
         }
         payload = {
             "model": self.model,
-            "max_tokens": 1024,
+            # Sonnet 5.5 は思考が常に有効で、思考分もここに含まれるため 1024 だと途中で切れうる
+            "max_tokens": 16000,
+            "output_config": {"effort": self.effort},
+            "fallbacks": "default",
             "messages": [{"role": "user", "content": prompt}],
         }
         try:

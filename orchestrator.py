@@ -79,7 +79,7 @@ def get_provider(name: str, config: Dict):
         return OpenAIProvider(api_key=cfg.get("api_key"), model=cfg.get("model"))
     elif name == "anthropic":
         cfg = config.get("anthropic", {})
-        return AnthropicProvider(api_key=cfg.get("api_key"), model=cfg.get("model"))
+        return AnthropicProvider(api_key=cfg.get("api_key"), model=cfg.get("model"), effort=cfg.get("effort"))
     elif name == "grok":
         cfg = config.get("grok", {})
         return GrokProvider(api_key=cfg.get("api_key"), model=cfg.get("model"))
