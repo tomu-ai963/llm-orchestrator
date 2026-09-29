@@ -18,8 +18,8 @@ class OpenAIProvider:
         }
         payload = {
             "model": self.model,
+            # temperature は送らない（gpt-6 系は既定値 1 以外を 400 で拒否する）
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.7,
         }
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=60)
