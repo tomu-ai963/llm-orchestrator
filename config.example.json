@@ -1,7 +1,7 @@
 {
   "openai": {
     "api_key": "YOUR_OPENAI_API_KEY",
-    "model": "gpt-4o"
+    "model": "gpt-6-luna"
   },
   "anthropic": {
     "api_key": "YOUR_ANTHROPIC_API_KEY",
@@ -10,7 +10,7 @@
   },
   "grok": {
     "api_key": "YOUR_XAI_API_KEY",
-    "model": "grok-4.3"
+    "model": "grok-4.7"
   },
   "context_files": {
     "shared_context": "data/shared_context.md",

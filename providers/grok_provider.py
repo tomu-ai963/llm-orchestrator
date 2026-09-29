@@ -10,7 +10,7 @@ class GrokProvider:
 
     def __init__(self, api_key: Optional[str], model: Optional[str] = None) -> None:
         self.api_key = api_key or os.environ.get("XAI_API_KEY")
-        self.model = model or "grok-4.3"
+        self.model = model or "grok-4.7"
 
     def send_message(self, prompt: str) -> str:
         if not self.api_key:
