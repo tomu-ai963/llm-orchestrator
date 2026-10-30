@@ -3,3 +3,4 @@ __pycache__/
 .wrangler/
 node_modules/
 config.json
+logs/
