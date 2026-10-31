@@ -14,6 +14,7 @@
  *
  * レスポンス（メイン）:
  *   { openai, anthropic, grok, memory: { used, history_count } }
+ *   各 AI は { ok, text, model? }。model は成功時のみ（API が返した実際のモデル名）
  *   review 時は target に is_review: true が付く
  */
 
@@ -34,12 +35,31 @@ export const AI_LABEL = { openai: "OpenAI", anthropic: "Anthropic", grok: "Grok"
 export const MAX_PROMPT_LEN  = 8000;
 export const MAX_CONTEXT_LEN = 16000;
 
-// 各プロバイダー共通の出力上限（council 比較の公平性のため統一）。
+// 呼び出すモデル（CLI の config.example.json と揃える）。
+// 画面の表示は各レスポンスの model を使うので、ここを変えれば表示も追従する。
+export const MODELS = {
+  openai:    "gpt-6-luna",
+  anthropic: "claude-sonnet-5-5",
+  grok:      "grok-4.7",
+};
+
+// Anthropic の effort（CLI の既定と同じ low）。
+export const ANTHROPIC_EFFORT = "low";
+
+// Grok の出力上限。
 export const MAX_TOKENS = 1500;
+
+// Anthropic の出力上限。Sonnet 5.5 は思考が常に有効で思考分もここに含まれるため、
+// 1500 だと回答本文に届く前に切れうる（CLI と同じ 16000）。
+export const ANTHROPIC_MAX_TOKENS = 16000;
+
+// OpenAI は max_tokens / temperature を送らない（CLI と同じ）。
+// gpt-6 系は temperature の既定値 1 以外を 400 で拒否する。
 
 // 各プロバイダー呼び出しのタイムアウト（ms）。
 // 1AI の遅延が council 全体を引きずり Worker の実行時間制限に当たるのを防ぐ。
-export const REQUEST_TIMEOUT_MS = 30000;
+// Sonnet 5.5 は思考が常に有効で応答が長引きうるため、CLI と同じ 60 秒にする。
+export const REQUEST_TIMEOUT_MS = 60000;
 
 /* ═══════════════════════════════════════════════════════════
    エントリーポイント
@@ -375,8 +395,17 @@ function errResult(e) {
   return { ok: false, text: `エラー: ${e.name === "AbortError" ? "タイムアウト" : e.message}` };
 }
 
-/** OpenAI — GPT-4o */
+/**
+ * 成功結果。model は API が返した実際のモデル名（無ければ要求したモデル名）。
+ * Anthropic のサーバー側フォールバックで別モデルに切り替わった場合も、画面に実際の名前が出る。
+ */
+function okResult(text, data, requestedModel) {
+  return { ok: true, text, model: data?.model || requestedModel };
+}
+
+/** OpenAI — GPT-6 Luna */
 export async function callOpenAI(apiKey, prompt) {
+  const model = MODELS.openai;
   try {
     const res = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -385,23 +414,23 @@ export async function callOpenAI(apiKey, prompt) {
         Authorization:  `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model:      "gpt-4o",
-        messages:   [{ role: "user", content: prompt }],
-        max_tokens: MAX_TOKENS,
+        model,
+        messages: [{ role: "user", content: prompt }],
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || "OpenAI error");
     const text = data?.choices?.[0]?.message?.content;
     if (typeof text !== "string") throw new Error("OpenAI: 応答形式が不正です");
-    return { ok: true, text };
+    return okResult(text, data, model);
   } catch (e) {
     return errResult(e);
   }
 }
 
-/** Anthropic — Claude Opus 4.8 */
+/** Anthropic — Claude Sonnet 5.5（effort low） */
 export async function callAnthropic(apiKey, prompt) {
+  const model = MODELS.anthropic;
   try {
     const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -409,25 +438,32 @@ export async function callAnthropic(apiKey, prompt) {
         "Content-Type":      "application/json",
         "x-api-key":         apiKey,
         "anthropic-version": "2023-06-01",
+        // 安全分類器で断られたとき、API 側で別モデルに自動で切り替える（CLI と同じ）
+        "anthropic-beta":    "server-side-fallback-2026-07-01",
       },
       body: JSON.stringify({
-        model:      "claude-opus-4-8",
-        max_tokens: MAX_TOKENS,
-        messages:   [{ role: "user", content: prompt }],
+        model,
+        max_tokens:    ANTHROPIC_MAX_TOKENS,
+        output_config: { effort: ANTHROPIC_EFFORT },
+        fallbacks:     "default",
+        messages:      [{ role: "user", content: prompt }],
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || "Anthropic error");
-    const text = data?.content?.[0]?.text;
-    if (typeof text !== "string") throw new Error("Anthropic: 応答形式が不正です");
-    return { ok: true, text };
+    // 思考が有効なので content の先頭は thinking ブロックになりうる。text ブロックだけを結合する。
+    const blocks = Array.isArray(data?.content) ? data.content : [];
+    const text   = blocks.filter(b => typeof b?.text === "string").map(b => b.text).join("");
+    if (!text) throw new Error("Anthropic: 応答形式が不正です");
+    return okResult(text, data, model);
   } catch (e) {
     return errResult(e);
   }
 }
 
-/** xAI — Grok（OpenAI 互換フォーマット） */
+/** xAI — Grok 4.7（OpenAI 互換フォーマット） */
 export async function callGrok(apiKey, prompt) {
+  const model = MODELS.grok;
   try {
     const res = await fetchWithTimeout("https://api.x.ai/v1/chat/completions", {
       method: "POST",
@@ -436,7 +472,7 @@ export async function callGrok(apiKey, prompt) {
         Authorization:  `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model:      "grok-4.3",
+        model,
         messages:   [{ role: "user", content: prompt }],
         max_tokens: MAX_TOKENS,
       }),
@@ -445,7 +481,7 @@ export async function callGrok(apiKey, prompt) {
     if (!res.ok) throw new Error(data.error?.message || "xAI error");
     const text = data?.choices?.[0]?.message?.content;
     if (typeof text !== "string") throw new Error("xAI: 応答形式が不正です");
-    return { ok: true, text };
+    return okResult(text, data, model);
   } catch (e) {
     return errResult(e);
   }

@@ -24,6 +24,9 @@ import worker, {
   MAX_PROMPT_LEN,
   MAX_CONTEXT_LEN,
   MAX_TOKENS,
+  ANTHROPIC_MAX_TOKENS,
+  ANTHROPIC_EFFORT,
+  MODELS,
 } from "../worker/index.js";
 
 /* ── テストダブル ───────────────────────────────────────── */
@@ -340,18 +343,95 @@ test("各プロバイダー呼び出しは signal 付き fetch を行う", async
   assert.equal(sawSignal, true);
 });
 
-test("MAX_TOKENS が全プロバイダーの body に反映される", async () => {
-  const bodies = [];
+/** URL ごとに body と headers を記録し、最小の正常応答を返す fetch スタブ。 */
+function installCaptureFetch(extra = {}) {
+  const seen = {};
   globalThis.fetch = async (url, init) => {
-    bodies.push(JSON.parse(init.body));
-    if (url.includes("anthropic")) return { ok: true, json: async () => ({ content: [{ text: "ok" }] }) };
-    return { ok: true, json: async () => ({ choices: [{ message: { content: "ok" } }] }) };
+    const key = url.includes("anthropic") ? "anthropic" : url.includes("x.ai") ? "grok" : "openai";
+    seen[key] = { body: JSON.parse(init.body), headers: init.headers };
+    if (key === "anthropic") return { ok: true, json: async () => ({ content: [{ text: "ok" }], ...extra }) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: "ok" } }], ...extra }) };
   };
+  return seen;
+}
+
+test("モデルは CLI と同じ gpt-6-luna / claude-sonnet-5-5 / grok-4.7", () => {
+  assert.deepEqual(MODELS, {
+    openai:    "gpt-6-luna",
+    anthropic: "claude-sonnet-5-5",
+    grok:      "grok-4.7",
+  });
+});
+
+test("各プロバイダーの body に MODELS のモデル名が入る", async () => {
+  const seen = installCaptureFetch();
   await callOpenAI("k", "Q");
   await callAnthropic("k", "Q");
   await callGrok("k", "Q");
-  assert.equal(bodies.length, 3);
-  for (const b of bodies) assert.equal(b.max_tokens, MAX_TOKENS);
+  assert.equal(seen.openai.body.model,    MODELS.openai);
+  assert.equal(seen.anthropic.body.model, MODELS.anthropic);
+  assert.equal(seen.grok.body.model,      MODELS.grok);
+});
+
+test("OpenAI は temperature / max_tokens を送らない（gpt-6 系の 400 回避）", async () => {
+  const seen = installCaptureFetch();
+  await callOpenAI("k", "Q");
+  assert.equal("temperature" in seen.openai.body, false);
+  assert.equal("max_tokens"  in seen.openai.body, false);
+});
+
+test("Anthropic は effort low・16000 トークン・サーバー側フォールバックで送る", async () => {
+  const seen = installCaptureFetch();
+  await callAnthropic("k", "Q");
+  const { body, headers } = seen.anthropic;
+  assert.equal(ANTHROPIC_EFFORT, "low");
+  assert.deepEqual(body.output_config, { effort: ANTHROPIC_EFFORT });
+  assert.equal(body.max_tokens, ANTHROPIC_MAX_TOKENS);
+  assert.equal(body.fallbacks, "default");
+  assert.equal(headers["anthropic-beta"], "server-side-fallback-2026-07-01");
+});
+
+test("Grok は MAX_TOKENS を送る", async () => {
+  const seen = installCaptureFetch();
+  await callGrok("k", "Q");
+  assert.equal(seen.grok.body.max_tokens, MAX_TOKENS);
+});
+
+test("callAnthropic は thinking ブロックを飛ばして text ブロックだけを結合する", async () => {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({
+    content: [
+      { type: "thinking", thinking: "考え中" },
+      { type: "text", text: "前半" },
+      { type: "text", text: "後半" },
+    ],
+  }) });
+  const r = await callAnthropic("k", "Q");
+  assert.equal(r.ok, true);
+  assert.equal(r.text, "前半後半");
+});
+
+test("成功時は API が返した model を返す（フォールバック後の名前も出る）", async () => {
+  installCaptureFetch({ model: "claude-opus-5-5" });
+  const r = await callAnthropic("k", "Q");
+  assert.equal(r.model, "claude-opus-5-5");
+});
+
+test("API が model を返さなければ要求したモデル名を返す", async () => {
+  installCaptureFetch();
+  assert.equal((await callOpenAI("k", "Q")).model,    MODELS.openai);
+  assert.equal((await callAnthropic("k", "Q")).model, MODELS.anthropic);
+  assert.equal((await callGrok("k", "Q")).model,      MODELS.grok);
+});
+
+test("council のレスポンスに各 AI の model が入る", async () => {
+  installFetchMock();
+  const ctx = makeCtx();
+  const res = await handleRequest(
+    makeRequest({ body: { password: "secret", prompt: "Q", mode: "council" } }),
+    makeEnv(), ctx);
+  const data = JSON.parse(await res.text());
+  for (const ai of AI_ALL) assert.equal(data[ai].model, MODELS[ai]);
+  await ctx.settled();
 });
 
 /* ── default export ─────────────────────────────────────── */

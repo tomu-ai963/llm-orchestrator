@@ -714,8 +714,11 @@
 const WORKER_URL = "https://llm-council-worker.inverted-triangle-leef.workers.dev";
 
 const AI_LABEL = { openai: "OpenAI", anthropic: "Anthropic", grok: "Grok" };
-const AI_MODEL = { openai: "gpt-4o", anthropic: "claude-haiku", grok: "grok-4.3" };
 const AI_ALL   = ["openai", "anthropic", "grok"];
+
+// モデル名はハードコードしない。Worker が返した実際のモデル名を覚えておき表示する。
+// 初回の送信前（まだ一度も返ってきていない間）は空欄。
+const lastModel = {};
 
 /* ═══════════════════════════════════════════════════════════
    状態
@@ -893,7 +896,7 @@ function panel(ai, id, text, loading = false) {
       <div class="panel-header">
         <div class="dot"></div>
         <span class="panel-name">${AI_LABEL[ai]}</span>
-        <span class="panel-model">${AI_MODEL[ai]}</span>
+        <span class="panel-model">${esc(lastModel[ai] || "")}</span>
       </div>
       <div class="loading-bar${loading ? " active" : ""}"></div>
       <div class="panel-body${loading ? " empty" : ""}" id="${id}">${esc(text)}</div>
@@ -906,7 +909,7 @@ function synthPanel(ai, id, text, loading = false) {
       <div class="panel-header">
         <div class="dot"></div>
         <span class="panel-name">${AI_LABEL[ai]}</span>
-        <span class="panel-model">${AI_MODEL[ai]}</span>
+        <span class="panel-model">${esc(lastModel[ai] || "")}</span>
         <span class="synthesis-tag">統合回答</span>
       </div>
       <div class="loading-bar${loading ? " active" : ""}"></div>
@@ -919,21 +922,27 @@ function synthPanel(ai, id, text, loading = false) {
 ════════════════════════════════════════════════════════════ */
 function renderResults(data) {
   if (currentMode === "ask") {
-    fillPanel("p-main", data[askTarget]);
+    fillPanel("p-main", data[askTarget], askTarget);
   } else if (currentMode === "council") {
-    AI_ALL.forEach(ai => fillPanel("p-" + ai, data[ai]));
+    AI_ALL.forEach(ai => fillPanel("p-" + ai, data[ai], ai));
   } else {
     // review
     const others = AI_ALL.filter(a => a !== reviewTarget);
-    others.forEach(ai => fillPanel("p-" + ai, data[ai]));
+    others.forEach(ai => fillPanel("p-" + ai, data[ai], ai));
     // 統合回答: data.review > data[reviewTarget]
-    fillPanel("p-synthesis", data.review || data[reviewTarget]);
+    fillPanel("p-synthesis", data.review || data[reviewTarget], reviewTarget);
   }
 }
 
-function fillPanel(id, result) {
+function fillPanel(id, result, ai) {
   const el = document.getElementById(id);
   if (!el) return;
+  // 実際に答えたモデル名をヘッダーに出し、次回のスケルトン表示用に覚えておく
+  if (result && result.model) {
+    lastModel[ai] = result.model;
+    const modelEl = el.closest(".panel")?.querySelector(".panel-model");
+    if (modelEl) modelEl.textContent = result.model;
+  }
   el.classList.remove("empty", "error");
   if (result && result.ok) {
     el.textContent = result.text;
