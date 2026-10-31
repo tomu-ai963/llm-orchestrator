@@ -50,6 +50,7 @@ API と同じオリジンなので、localStorage に保存するパスワード
 以前の GitHub Pages（https://tomu-ai963.github.io/llm-orchestrator/ ）はルートの `index.html` が移転ページになっていて、
 開くとそのブラウザに残っているパスワードを消し、新しい URL へ案内します。
 
+- ホーム画面に追加すると、アプリとして単独のウィンドウで開ける（PWA）
 - パスワードと質問を入れて送信（Shift + Enter でも送信）
 - 「共有コンテキスト」を開くと、全AIに渡す前提情報を書ける
 - 各パネルのヘッダーには、実際に回答したモデル名が出る（Worker が返した値。最初の送信前は空欄）
@@ -154,6 +155,8 @@ CLI 版はプロンプトに次のファイルの中身を添えます（Web 版
 
 ```
 public/index.html     Web 版の画面（Worker が配信）
+public/manifest.webmanifest  PWA のマニフェスト
+public/icons/         PWA アイコン・favicon（icon.svg が元の絵）
 worker/index.js       Worker のエントリポイント
 worker/council.js     Worker の処理本体
 test/worker.test.js   Worker のテスト
