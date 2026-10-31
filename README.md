@@ -49,6 +49,7 @@ API と同じオリジンなので、localStorage に保存するパスワード
 
 以前の GitHub Pages（https://tomu-ai963.github.io/llm-orchestrator/ ）はルートの `index.html` が移転ページになっていて、
 開くとそのブラウザに残っているパスワードを消し、新しい URL へ案内します。
+共有コンテキストが残っていれば、新しい画面へ貼り直せるようにその場で表示します。
 
 - ホーム画面に追加すると、アプリとして単独のウィンドウで開ける（PWA）
 - パスワードと質問を入れて送信（Shift + Enter でも送信）
@@ -75,9 +76,9 @@ Worker 名は `llm-council-worker`（`wrangler.toml`）。
 
 - 画面と同じオリジンなので CORS ヘッダーは返さない（OPTIONS は 405）
 - `public/` の中身だけがアップロードされる。リポジトリの他のファイルは公開されない
-
 - `mode` は `council`（既定）/ `ask` / `review`、`target` は `openai` / `anthropic` / `grok`
-- レスポンスは `{ openai, anthropic, grok, memory }`。各AIは `{ ok, text, model }`
+- レスポンスは `{ openai, anthropic, grok, memory }`。各AIは `{ ok, text }` で、成功時は実際に答えたモデル名 `model` が付く。
+  review では `target` の結果に `is_review: true` が付く
 - 入力の上限は `prompt` 8000文字、`shared_context` 16000文字
 - 各AIへの呼び出しは60秒でタイムアウトする
 
@@ -177,7 +178,7 @@ CLI 版はプロンプトに次のファイルの中身を添えます（Web 版
 ```
 public/index.html     Web 版の画面（Worker が配信）
 public/manifest.webmanifest  PWA のマニフェスト
-public/icons/         PWA アイコン・favicon（icon.svg が元の絵）
+public/icons/         PWA アイコン・favicon（icon.svg が元の絵。maskable / apple-touch は全面塗りで中身を 86% に縮めた版）
 worker/index.js       Worker のエントリポイント
 worker/council.js     Worker の処理本体
 test/worker.test.js   Worker のテスト
