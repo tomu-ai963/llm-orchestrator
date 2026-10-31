@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import argparse
+import io
 import json
 import os
 import sys
@@ -57,9 +58,27 @@ def build_prompt(question: str, context: Dict, mode: str = "ask", summary: Optio
     if context.get("weekly_update"):
         parts.append("【今週の更新】\n" + context["weekly_update"])
     context_text = "\n\n".join(parts)
+    # --no-context のときは見出しごと省く（空の「共有コンテキスト:」を送らない）
+    head = f"共有コンテキスト:\n{context_text}\n\n" if context_text else ""
     if mode == "review" and summary:
-        return f"共有コンテキスト:\n{context_text}\n\n他モデルの回答:\n{summary}\n\n質問: {question}\n\n他モデルの回答を参考にしつつ、あなた自身の見解を日本語で述べてください。"
-    return f"共有コンテキスト:\n{context_text}\n\n質問: {question}\n\n上記を踏まえて日本語で答えてください。"
+        return f"{head}他モデルの回答:\n{summary}\n\n質問: {question}\n\n他モデルの回答を参考にしつつ、あなた自身の見解を日本語で述べてください。"
+    return f"{head}質問: {question}\n\n上記を踏まえて日本語で答えてください。"
+
+def get_context(args) -> Dict:
+    """--no-context なら共有コンテキストを読まない（コードの相談などに data/ の個人情報を混ぜないため）。"""
+    if getattr(args, "no_context", False):
+        return {}
+    return load_shared_context(DATA_DIR)
+
+def read_question(args) -> str:
+    """質問が "-" なら標準入力から読む（長い質問やコードをシェルの引数に載せずに渡すため）。"""
+    if args.question == "-":
+        text = sys.stdin.read().strip()
+        if not text:
+            print("エラー: 標準入力が空です", file=sys.stderr)
+            sys.exit(2)
+        return text
+    return args.question
 
 def ensure_logs_dir():
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -103,22 +122,24 @@ def cmd_status(args, config):
         print(context["weekly_update"][:200])
 
 def cmd_ask(args, config):
-    context = load_shared_context(DATA_DIR)
-    prompt = build_prompt(args.question, context)
+    question = read_question(args)
+    context = get_context(args)
+    prompt = build_prompt(question, context)
     provider = get_provider(args.model, config)
     try:
         answer = provider.send_message(prompt)
     except Exception as e:
         print(f"エラー: {e}", file=sys.stderr)
-        return
+        sys.exit(1)
     print(f"=== {args.model} の回答 ===")
     print(answer)
-    log_interaction("ask", args.model, args.question, answer)
+    log_interaction("ask", args.model, question, answer)
 
 def cmd_council(args, config):
-    context = load_shared_context(DATA_DIR)
-    prompt = build_prompt(args.question, context)
-    for model_name in ["openai", "anthropic", "grok"]:
+    question = read_question(args)
+    context = get_context(args)
+    prompt = build_prompt(question, context)
+    for model_name in args.models:
         provider = get_provider(model_name, config)
         try:
             answer = provider.send_message(prompt)
@@ -127,12 +148,13 @@ def cmd_council(args, config):
         print(f"=== {model_name} の回答 ===")
         print(answer)
         print()
-        log_interaction("council", model_name, args.question, answer)
+        log_interaction("council", model_name, question, answer)
 
 def cmd_review(args, config):
-    context = load_shared_context(DATA_DIR)
+    question = read_question(args)
+    context = get_context(args)
     other_models = [m for m in ["openai", "anthropic", "grok"] if m != args.target.lower()]
-    base_prompt = build_prompt(args.question, context)
+    base_prompt = build_prompt(question, context)
     summaries = []
     for model_name in other_models:
         provider = get_provider(model_name, config)
@@ -141,18 +163,18 @@ def cmd_review(args, config):
         except Exception as e:
             answer = f"エラー: {e}"
         summaries.append(f"【{model_name}】\n{answer}")
-        log_interaction("review-collect", model_name, args.question, answer)
+        log_interaction("review-collect", model_name, question, answer)
     summary_text = "\n\n".join(summaries)
-    review_prompt = build_prompt(args.question, context, mode="review", summary=summary_text)
+    review_prompt = build_prompt(question, context, mode="review", summary=summary_text)
     provider = get_provider(args.target, config)
     try:
         answer = provider.send_message(review_prompt)
     except Exception as e:
         print(f"エラー: {e}", file=sys.stderr)
-        return
+        sys.exit(1)
     print(f"=== {args.target} の再評価 ===")
     print(answer)
-    log_interaction("review", args.target, args.question, answer)
+    log_interaction("review", args.target, question, answer)
 
 def cmd_sync(args, config):
     context = load_shared_context(DATA_DIR)
@@ -163,25 +185,42 @@ def cmd_sync(args, config):
     print("\n--- weekly_update.md ---")
     print(context["weekly_update"] or "(空)")
 
+AI_CHOICES = ["openai", "anthropic", "grok"]
+
 def build_parser():
     parser = argparse.ArgumentParser(description="マルチLLM共有コンテキスト管理CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # 質問系サブコマンド共通のオプション（サブコマンドの後ろに書ける）。
+    # 位置引数を parents に入れると子の位置引数より前に並んでしまうので、question は各サブコマンドで最後に足す。
+    q = argparse.ArgumentParser(add_help=False)
+    q.add_argument("--no-context", action="store_true",
+                   help="data/ の共有コンテキストを付けない（コードの相談など）")
+    def add_question(p):
+        p.add_argument("question", help='質問。"-" なら標準入力から読む')
+
     subparsers.add_parser("status").set_defaults(func=cmd_status)
-    p_ask = subparsers.add_parser("ask")
-    p_ask.add_argument("model", choices=["openai", "anthropic", "grok"])
-    p_ask.add_argument("question")
+    p_ask = subparsers.add_parser("ask", parents=[q])
+    p_ask.add_argument("model", choices=AI_CHOICES)
+    add_question(p_ask)
     p_ask.set_defaults(func=cmd_ask)
-    p_council = subparsers.add_parser("council")
-    p_council.add_argument("question")
+    p_council = subparsers.add_parser("council", parents=[q])
+    p_council.add_argument("--models", nargs="+", choices=AI_CHOICES, default=AI_CHOICES,
+                           help="質問する AI（既定は3つすべて）。例: --models openai grok")
+    add_question(p_council)
     p_council.set_defaults(func=cmd_council)
-    p_review = subparsers.add_parser("review")
-    p_review.add_argument("target", choices=["openai", "anthropic", "grok"])
-    p_review.add_argument("question")
+    p_review = subparsers.add_parser("review", parents=[q])
+    p_review.add_argument("target", choices=AI_CHOICES)
+    add_question(p_review)
     p_review.set_defaults(func=cmd_review)
     subparsers.add_parser("sync").set_defaults(func=cmd_sync)
     return parser
 
 def main(argv=None):
+    # Windows のコンソール（cp932）でも日本語や絵文字で落ちないよう UTF-8 に固定する
+    for stream in (sys.stdout, sys.stderr, sys.stdin):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

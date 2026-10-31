@@ -139,6 +139,25 @@ python orchestrator.py review anthropic "質問"
 python orchestrator.py sync
 ```
 
+質問系（`ask` / `council` / `review`）のオプション:
+
+- `--no-context` — `data/` の共有コンテキストを付けない（コードの相談などで個人的なメモを送らないため）
+- 質問に `-` を渡すと標準入力から読む（長い質問やコードを、シェルの引数に載せずに渡せる）
+- `council --models openai grok` — 聞く AI を絞る（既定は3つすべて）
+- API エラーのときは終了コード 1、質問が空なら 2
+
+```bash
+python orchestrator.py ask openai - --no-context <<'EOF'
+このリトライ処理で、指数バックオフに上限を付けるべきか？
+EOF
+```
+
+### Claude Code から使う
+
+ユーザースキル `second-opinion`（`~/.claude/skills/second-opinion/SKILL.md`）が、
+Claude Code に「設計や原因調査で迷ったら、この CLI で OpenAI / Grok にセカンドオピニオンを聞く」使い方を教えています。
+`/second-opinion` で明示的に呼ぶこともできます。
+
 ### 共有コンテキストのファイル
 
 CLI 版はプロンプトに次のファイルの中身を添えます（Web 版は使いません）。
