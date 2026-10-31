@@ -6,7 +6,7 @@ import requests
 class OpenAIProvider:
     def __init__(self, api_key: Optional[str], model: Optional[str] = None) -> None:
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        self.model = model or "gpt-3.5-turbo"
+        self.model = model or "gpt-6-luna"
 
     def send_message(self, prompt: str) -> str:
         if not self.api_key:
