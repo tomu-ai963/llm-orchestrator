@@ -144,6 +144,7 @@ python orchestrator.py sync
 - `--no-context` — `data/` の共有コンテキストを付けない（コードの相談などで個人的なメモを送らないため）
 - 質問に `-` を渡すと標準入力から読む（長い質問やコードを、シェルの引数に載せずに渡せる）
 - `council --models openai grok` — 聞く AI を絞る（既定は3つすべて）
+- `--model openai=gpt-6.1-sol` — その回だけモデルを差し替える（`config.json` は書き換えない。複数指定可）
 - API エラーのときは終了コード 1、質問が空なら 2
 
 ```bash
@@ -156,6 +157,7 @@ EOF
 
 ユーザースキル `second-opinion`（`~/.claude/skills/second-opinion/SKILL.md`）が、
 Claude Code に「設計や原因調査で迷ったら、この CLI で OpenAI / Grok にセカンドオピニオンを聞く」使い方を教えています。
+相談役としては OpenAI を上位の `gpt-6.1-sol` に差し替えて使います（`--model openai=gpt-6.1-sol`。Web 版と `config.json` の既定は `gpt-6-luna` のまま）。
 `/second-opinion` で明示的に呼ぶこともできます。
 
 ### 共有コンテキストのファイル

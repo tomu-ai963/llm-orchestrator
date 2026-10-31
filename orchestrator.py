@@ -131,7 +131,7 @@ def cmd_ask(args, config):
     except Exception as e:
         print(f"エラー: {e}", file=sys.stderr)
         sys.exit(1)
-    print(f"=== {args.model} の回答 ===")
+    print(f"=== {args.model}（{provider.model}）の回答 ===")
     print(answer)
     log_interaction("ask", args.model, question, answer)
 
@@ -145,7 +145,7 @@ def cmd_council(args, config):
             answer = provider.send_message(prompt)
         except Exception as e:
             answer = f"エラー: {e}"
-        print(f"=== {model_name} の回答 ===")
+        print(f"=== {model_name}（{provider.model}）の回答 ===")
         print(answer)
         print()
         log_interaction("council", model_name, question, answer)
@@ -172,7 +172,7 @@ def cmd_review(args, config):
     except Exception as e:
         print(f"エラー: {e}", file=sys.stderr)
         sys.exit(1)
-    print(f"=== {args.target} の再評価 ===")
+    print(f"=== {args.target}（{provider.model}）の再評価 ===")
     print(answer)
     log_interaction("review", args.target, question, answer)
 
@@ -187,6 +187,24 @@ def cmd_sync(args, config):
 
 AI_CHOICES = ["openai", "anthropic", "grok"]
 
+def parse_model_override(value: str):
+    """--model の値 "openai=gpt-6.1-sol" を ("openai", "gpt-6.1-sol") にする。"""
+    name, sep, model = value.partition("=")
+    name, model = name.strip().lower(), model.strip()
+    if not sep or name not in AI_CHOICES or not model:
+        raise argparse.ArgumentTypeError(
+            f'"{value}" は不正です。<{"|".join(AI_CHOICES)}>=<モデル名> の形で指定してください（例: openai=gpt-6.1-sol）')
+    return name, model
+
+def apply_model_overrides(config: Dict, overrides) -> Dict:
+    """--model の指定でその回だけモデルを差し替える（config.json は書き換えない）。"""
+    if not overrides:
+        return config
+    merged = {k: (dict(v) if isinstance(v, dict) else v) for k, v in config.items()}
+    for name, model in overrides:
+        merged.setdefault(name, {})["model"] = model
+    return merged
+
 def build_parser():
     parser = argparse.ArgumentParser(description="マルチLLM共有コンテキスト管理CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -196,6 +214,9 @@ def build_parser():
     q = argparse.ArgumentParser(add_help=False)
     q.add_argument("--no-context", action="store_true",
                    help="data/ の共有コンテキストを付けない（コードの相談など）")
+    q.add_argument("--model", dest="model_overrides", action="append", type=parse_model_override,
+                   metavar="AI=MODEL",
+                   help="その回だけモデルを差し替える。複数可。例: --model openai=gpt-6.1-sol")
     def add_question(p):
         p.add_argument("question", help='質問。"-" なら標準入力から読む')
 
@@ -228,6 +249,7 @@ def main(argv=None):
     except Exception as e:
         print(f"設定ファイルの読み込みに失敗: {e}", file=sys.stderr)
         sys.exit(1)
+    config = apply_model_overrides(config, getattr(args, "model_overrides", None))
     args.func(args, config)
 
 if __name__ == "__main__":
