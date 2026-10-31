@@ -45,11 +45,11 @@ function makeEnv(kvInit = {}) {
   return {
     COUNCIL_KV: new FakeKV({
       password:       "secret",
-      openai_key:     "sk-openai",
-      anthropic_key:  "sk-anthropic",
       ...kvInit,
     }),
-    XAI_API_KEY: "xai-key",
+    OPENAI_API_KEY:    "sk-openai",
+    ANTHROPIC_API_KEY: "sk-anthropic",
+    XAI_API_KEY:       "xai-key",
   };
 }
 
@@ -439,6 +439,18 @@ test("API が model を返さなければ要求したモデル名を返す", asy
   assert.equal((await callOpenAI("k", "Q")).model,    MODELS.openai);
   assert.equal((await callAnthropic("k", "Q")).model, MODELS.anthropic);
   assert.equal((await callGrok("k", "Q")).model,      MODELS.grok);
+});
+
+test("API キーは secret（env）から読み、KV の openai_key / anthropic_key は使わない", async () => {
+  const seen = installCaptureFetch();
+  const env = makeEnv({ openai_key: "KV-OPENAI", anthropic_key: "KV-ANTHROPIC" });
+  const ctx = makeCtx();
+  await handleRequest(
+    makeRequest({ body: { password: "secret", prompt: "Q", mode: "council" } }), env, ctx);
+  assert.equal(seen.openai.headers.Authorization, "Bearer sk-openai");
+  assert.equal(seen.anthropic.headers["x-api-key"], "sk-anthropic");
+  assert.equal(seen.grok.headers.Authorization, "Bearer xai-key");
+  await ctx.settled();
 });
 
 test("council のレスポンスに各 AI の model が入る", async () => {

@@ -113,12 +113,13 @@ export async function handleRequest(request, env, ctx) {
     return jsonRes({ error: "パスワードが違います" }, 401);
   }
 
-  // ── API キー取得（KV） ──
-  const [openaiKey, anthropicKey] = await Promise.all([
-    env.COUNCIL_KV.get("openai_key"),
-    env.COUNCIL_KV.get("anthropic_key"),
-  ]);
-  const keys = { openai: openaiKey, anthropic: anthropicKey, grok: env.XAI_API_KEY };
+  // ── API キー取得（Worker の secret）──
+  // 以前は openai / anthropic のキーを KV に平文で置いていたが、secret に移した（KV からは削除済み）。
+  const keys = {
+    openai:    env.OPENAI_API_KEY,
+    anthropic: env.ANTHROPIC_API_KEY,
+    grok:      env.XAI_API_KEY,
+  };
 
   // ── 入力バリデーション ──
   const validModes   = ["council", "ask", "review"];

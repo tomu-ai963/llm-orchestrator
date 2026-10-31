@@ -10,7 +10,7 @@ OpenAI・Anthropic（Claude）・xAI（Grok）の3つのAIに同じ質問を投�
 |---|---|---|
 | 使う場所 | ブラウザ（スマホ可） | Termux などのターミナル |
 | 構成 | Cloudflare Worker（画面と API を同じオリジンで配信）→ 各社 API | `orchestrator.py` → 各社 API |
-| APIキーの置き場所 | Worker 側（KV / secret） | `config.json` |
+| APIキーの置き場所 | Worker の secret | `config.json` |
 | 共有コンテキスト | 画面の入力欄 | `data/` 配下のファイル |
 | 会話の記憶 | 直近50件を KV に保存し、直近5件の要約をプロンプトに添える | なし（`logs/` に記録のみ） |
 
@@ -88,11 +88,14 @@ Worker 名は `llm-council-worker`（`wrangler.toml`）。
 
 | 名前 | 置き場所 | 中身 |
 |---|---|---|
-| `password` | KV（`COUNCIL_KV`） | 画面から送るパスワード |
-| `openai_key` | KV（`COUNCIL_KV`） | OpenAI の APIキー |
-| `anthropic_key` | KV（`COUNCIL_KV`） | Anthropic の APIキー |
-| `memory:history` | KV（`COUNCIL_KV`） | 会話の記憶（Worker が自動で書く） |
+| `OPENAI_API_KEY` | Worker の secret | OpenAI の APIキー |
+| `ANTHROPIC_API_KEY` | Worker の secret | Anthropic の APIキー |
 | `XAI_API_KEY` | Worker の secret | xAI の APIキー |
+| `password` | KV（`COUNCIL_KV`） | 画面から送るパスワード |
+| `memory:history` | KV（`COUNCIL_KV`） | 会話の記憶（Worker が自動で書く） |
+
+APIキーは `npx wrangler secret put <名前>` で登録します（値は画面やシェル履歴に残さない）。
+以前は OpenAI と Anthropic のキーを KV に平文で置いていましたが、secret に移して KV からは削除しました。
 
 ### 開発
 
