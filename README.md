@@ -46,11 +46,7 @@ https://llm-council.tomu-ai.dev/
 
 画面（`public/index.html`）は Worker が配信します（`npx wrangler deploy` で反映）。
 API と同じオリジンなので、localStorage に保存するパスワードを他のアプリと共有しません。
-公開先はこのカスタムドメインだけです（`workers.dev` の URL は止めています）。
-
-以前の GitHub Pages（https://tomu-ai963.github.io/llm-orchestrator/ ）はルートの `index.html` が移転ページになっていて、
-開くとそのブラウザに残っているパスワードを消し、新しい URL へ案内します。
-共有コンテキストが残っていれば、新しい画面へ貼り直せるようにその場で表示します。
+公開先はこのカスタムドメインだけです（`workers.dev` の URL と、以前の GitHub Pages は止めています）。
 
 - ホーム画面に追加すると、アプリとして単独のウィンドウで開ける（PWA）
 - パスワードと質問を入れて送信（Shift + Enter でも送信）
@@ -186,7 +182,6 @@ public/icons/         PWA アイコン・favicon（icon.svg が元の絵。maska
 worker/index.js       Worker のエントリポイント
 worker/council.js     Worker の処理本体
 test/worker.test.js   Worker のテスト
-index.html            旧 GitHub Pages の移転ページ
 wrangler.toml         Worker の設定
 orchestrator.py       CLI 版の本体
 providers/            CLI 版の各社 API 呼び出し
