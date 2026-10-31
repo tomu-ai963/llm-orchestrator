@@ -1,4 +1,4 @@
-# LLM Orchestrator
+# LLM Council
 
 TermuxからClaude・ChatGPT・Grok(xAI)を一括操作できるマルチLLM CLIツール。
 
