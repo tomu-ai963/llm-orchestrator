@@ -5,6 +5,14 @@ workers_dev = true
 # Cloudflare Workers runtime
 compatibility_date = "2024-01-01"
 
+# 画面（public/ の中身だけをアップロードする。リポジトリの他のファイルは公開されない）
+# run_worker_first: 全リクエストをまず Worker に通し、GET だけ ASSETS に渡す。
+# POST / （API）が静的ファイルの index.html に横取りされないようにするため。
+[assets]
+directory        = "./public"
+binding          = "ASSETS"
+run_worker_first = true
+
 # KV バインディング（COUNCIL_KV）
 [[kv_namespaces]]
 binding  = "COUNCIL_KV"

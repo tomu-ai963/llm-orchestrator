@@ -5,7 +5,8 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import worker, {
+import worker from "../worker/index.js";
+import {
   handleRequest,
   loadMemory,
   saveMemory,
@@ -25,9 +26,8 @@ import worker, {
   MAX_CONTEXT_LEN,
   MAX_TOKENS,
   ANTHROPIC_MAX_TOKENS,
-  ANTHROPIC_EFFORT,
   MODELS,
-} from "../worker/index.js";
+} from "../worker/council.js";
 
 /* ── テストダブル ───────────────────────────────────────── */
 
@@ -112,15 +112,34 @@ test("AI 構成が openai / anthropic / grok（gemini 廃止）", () => {
 
 /* ── ルーティング / 認証 / バリデーション ───────────────── */
 
-test("OPTIONS は CORS ヘッダ付き 200", async () => {
-  const res = await handleRequest(makeRequest({ method: "OPTIONS" }), makeEnv(), makeCtx());
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Access-Control-Allow-Origin"), "*");
+test("GET / HEAD は ASSETS（画面の静的ファイル）に渡す", async () => {
+  for (const method of ["GET", "HEAD"]) {
+    const env = makeEnv();
+    let passed = null;
+    env.ASSETS = { fetch: async (req) => { passed = req; return new Response("<html>"); } };
+    const req = makeRequest({ method });
+    const res = await handleRequest(req, env, makeCtx());
+    assert.equal(passed, req);
+    assert.equal(await res.text(), "<html>");
+  }
 });
 
-test("非 POST は 405", async () => {
-  const res = await handleRequest(makeRequest({ method: "GET" }), makeEnv(), makeCtx());
-  assert.equal(res.status, 405);
+test("OPTIONS / PUT は 405（同一オリジンなのでプリフライトに応じない）", async () => {
+  for (const method of ["OPTIONS", "PUT"]) {
+    const res = await handleRequest(makeRequest({ method }), makeEnv(), makeCtx());
+    assert.equal(res.status, 405);
+  }
+});
+
+test("API のレスポンスに CORS ヘッダーを付けない", async () => {
+  installFetchMock();
+  const ctx = makeCtx();
+  const res = await handleRequest(
+    makeRequest({ body: { password: "secret", prompt: "Q", mode: "council" } }),
+    makeEnv(), ctx);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Access-Control-Allow-Origin"), null);
+  await ctx.settled();
 });
 
 test("password / prompt 欠落は 400", async () => {
@@ -384,8 +403,7 @@ test("Anthropic は effort low・16000 トークン・サーバー側フォー�
   const seen = installCaptureFetch();
   await callAnthropic("k", "Q");
   const { body, headers } = seen.anthropic;
-  assert.equal(ANTHROPIC_EFFORT, "low");
-  assert.deepEqual(body.output_config, { effort: ANTHROPIC_EFFORT });
+  assert.deepEqual(body.output_config, { effort: "low" });
   assert.equal(body.max_tokens, ANTHROPIC_MAX_TOKENS);
   assert.equal(body.fallbacks, "default");
   assert.equal(headers["anthropic-beta"], "server-side-fallback-2026-07-01");
@@ -438,4 +456,10 @@ test("council のレスポンスに各 AI の model が入る", async () => {
 
 test("default export は fetch ハンドラを公開", () => {
   assert.equal(typeof worker.fetch, "function");
+  assert.equal(worker.fetch, handleRequest);
+});
+
+test("エントリポイントは default 以外を export しない（[assets] 有効時に起動失敗するため）", async () => {
+  const mod = await import("../worker/index.js");
+  assert.deepEqual(Object.keys(mod), ["default"]);
 });

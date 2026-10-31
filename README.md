@@ -9,7 +9,7 @@ OpenAI・Anthropic（Claude）・xAI（Grok）の3つのAIに同じ質問を投�
 | | Web 版 | CLI 版 |
 |---|---|---|
 | 使う場所 | ブラウザ（スマホ可） | Termux などのターミナル |
-| 構成 | `index.html`（GitHub Pages）→ Cloudflare Worker → 各社 API | `orchestrator.py` → 各社 API |
+| 構成 | Cloudflare Worker（画面と API を同じオリジンで配信）→ 各社 API | `orchestrator.py` → 各社 API |
 | APIキーの置き場所 | Worker 側（KV / secret） | `config.json` |
 | 共有コンテキスト | 画面の入力欄 | `data/` 配下のファイル |
 | 会話の記憶 | 直近50件を KV に保存し、直近5件の要約をプロンプトに添える | なし（`logs/` に記録のみ） |
@@ -24,7 +24,7 @@ Web 版と CLI 版で揃えています。
 | Anthropic | `claude-sonnet-5-5`（effort `low`） |
 | Grok | `grok-4.7` |
 
-- Web 版: `worker/index.js` の `MODELS`
+- Web 版: `worker/council.js` の `MODELS`
 - CLI 版: `config.json`（ひな形は `config.example.json`）
 
 ## モード
@@ -41,9 +41,13 @@ Web 版と CLI 版で揃えています。
 
 ### 画面
 
-https://tomu-ai963.github.io/llm-orchestrator/
+https://llm-council-worker.inverted-triangle-leef.workers.dev/
 
-`main` ブランチの `index.html` が GitHub Pages で公開されます（push で反映）。
+画面（`public/index.html`）は Worker が配信します（`npx wrangler deploy` で反映）。
+API と同じオリジンなので、localStorage に保存するパスワードを他のアプリと共有しません。
+
+以前の GitHub Pages（https://tomu-ai963.github.io/llm-orchestrator/ ）はルートの `index.html` が移転ページになっていて、
+開くとそのブラウザに残っているパスワードを消し、新しい URL へ案内します。
 
 - パスワードと質問を入れて送信（Shift + Enter でも送信）
 - 「共有コンテキスト」を開くと、全AIに渡す前提情報を書ける
@@ -53,12 +57,22 @@ https://tomu-ai963.github.io/llm-orchestrator/
 
 ### Worker
 
-`worker/index.js`。Worker 名は `llm-council-worker`（`wrangler.toml`）。
+Worker 名は `llm-council-worker`（`wrangler.toml`）。
+
+- `worker/index.js` — エントリポイント。default export（fetch ハンドラ）だけを持つ
+- `worker/council.js` — 処理の本体と定数（テストはここから import する）
+
+`[assets]` を有効にしていると、wrangler はエントリポイントの named export をすべて入口として扱い、
+定数を export していると起動に失敗します。エントリポイントには default 以外を export しないでください。
 
 | エンドポイント | 内容 |
 |---|---|
+| `GET /*` | 画面（`public/` の静的ファイル） |
 | `POST /` | 質問する。body: `{ password, prompt, mode?, target?, shared_context? }` |
 | `POST /reset-memory` | 会話の記憶を消す。body: `{ password }` |
+
+- 画面と同じオリジンなので CORS ヘッダーは返さない（OPTIONS は 405）
+- `public/` の中身だけがアップロードされる。リポジトリの他のファイルは公開されない
 
 - `mode` は `council`（既定）/ `ask` / `review`、`target` は `openai` / `anthropic` / `grok`
 - レスポンスは `{ openai, anthropic, grok, memory }`。各AIは `{ ok, text, model }`
@@ -81,8 +95,9 @@ https://tomu-ai963.github.io/llm-orchestrator/
 
 ```bash
 npm install
-npm test            # Worker のテスト（fetch と KV はモック。本物の API は呼ばない）
-npx wrangler deploy # 本番デプロイ
+npm test                  # Worker のテスト（fetch と KV はモック。本物の API は呼ばない）
+npx wrangler dev --local  # ローカルで画面と API を起動（ローカル KV は空なのでパスワードは通らない）
+npx wrangler deploy       # 本番デプロイ（画面と Worker の両方）
 ```
 
 ---
@@ -137,9 +152,11 @@ CLI 版はプロンプトに次のファイルの中身を添えます（Web 版
 ## ファイル構成
 
 ```
-index.html            Web 版の画面
-worker/index.js       Cloudflare Worker
+public/index.html     Web 版の画面（Worker が配信）
+worker/index.js       Worker のエントリポイント
+worker/council.js     Worker の処理本体
 test/worker.test.js   Worker のテスト
+index.html            旧 GitHub Pages の移転ページ
 wrangler.toml         Worker の設定
 orchestrator.py       CLI 版の本体
 providers/            CLI 版の各社 API 呼び出し
