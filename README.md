@@ -41,10 +41,11 @@ Web 版と CLI 版で揃えています。
 
 ### 画面
 
-https://llm-council-worker.inverted-triangle-leef.workers.dev/
+https://llm-council.tomu-ai.dev/
 
 画面（`public/index.html`）は Worker が配信します（`npx wrangler deploy` で反映）。
 API と同じオリジンなので、localStorage に保存するパスワードを他のアプリと共有しません。
+公開先はこのカスタムドメインだけです（`workers.dev` の URL は止めています）。
 
 以前の GitHub Pages（https://tomu-ai963.github.io/llm-orchestrator/ ）はルートの `index.html` が移転ページになっていて、
 開くとそのブラウザに残っているパスワードを消し、新しい URL へ案内します。

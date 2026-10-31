@@ -1,6 +1,12 @@
 name       = "llm-council-worker"
 main       = "worker/index.js"
-workers_dev = true
+# 公開先は llm-council.tomu-ai.dev に一本化する。
+# workers.dev を残すとオリジンが2つになり、localStorage のパスワードも2か所に分かれるため止める。
+workers_dev  = false
+preview_urls = false
+routes = [
+  { pattern = "llm-council.tomu-ai.dev", custom_domain = true },
+]
 
 # Cloudflare Workers runtime
 compatibility_date = "2024-01-01"
