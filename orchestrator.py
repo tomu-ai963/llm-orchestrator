@@ -188,12 +188,12 @@ def cmd_sync(args, config):
 AI_CHOICES = ["openai", "anthropic", "grok"]
 
 def parse_model_override(value: str):
-    """--model の値 "openai=gpt-6.1-sol" を ("openai", "gpt-6.1-sol") にする。"""
+    """--model の値 "openai=gpt-6.2-sol" を ("openai", "gpt-6.2-sol") にする。"""
     name, sep, model = value.partition("=")
     name, model = name.strip().lower(), model.strip()
     if not sep or name not in AI_CHOICES or not model:
         raise argparse.ArgumentTypeError(
-            f'"{value}" は不正です。<{"|".join(AI_CHOICES)}>=<モデル名> の形で指定してください（例: openai=gpt-6.1-sol）')
+            f'"{value}" は不正です。<{"|".join(AI_CHOICES)}>=<モデル名> の形で指定してください（例: openai=gpt-6.2-sol）')
     return name, model
 
 def apply_model_overrides(config: Dict, overrides) -> Dict:
@@ -216,7 +216,7 @@ def build_parser():
                    help="data/ の共有コンテキストを付けない（コードの相談など）")
     q.add_argument("--model", dest="model_overrides", action="append", type=parse_model_override,
                    metavar="AI=MODEL",
-                   help="その回だけモデルを差し替える。複数可。例: --model openai=gpt-6.1-sol")
+                   help="その回だけモデルを差し替える。複数可。例: --model openai=gpt-6.2-sol")
     def add_question(p):
         p.add_argument("question", help='質問。"-" なら標準入力から読む')
 
